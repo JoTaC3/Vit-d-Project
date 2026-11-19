@@ -1,5 +1,5 @@
 /* ==========================================================================
-   VITAMINA D SIMULATOR V7.0
+   VITAMINA D SIMULATOR V7.1
    Motor Farmacocinético Poblacional (PopPK) con Integración ODE RK4,
    Escalamiento Alométrico Continuo FFM/FM, Saturación CYP2R1/CYP24A1,
    Calibración Bayesiana MAP + Nelder-Mead, Bandas IC 95%, Memoria,
@@ -9,12 +9,14 @@
 const STORAGE_KEY_AUTOSAVE = "vitd_sim_v6_autosave";
 const STORAGE_KEY_MEMORIES = "vitd_sim_v6_memories";
 const STORAGE_KEY_PROFILES = "vitd_sim_v7_profiles";
+const THEME_STORAGE_KEY = "app-theme-mode";
 
 // Estado global
 let bloodChart = null;
 let doseChart = null;
 let currentMode = "simulation"; // 'simulation' | 'daily'
-let currentTheme = "dark";      // 'dark' | 'clinical' | 'warm'
+let currentThemeMode = "auto";  // 'light' | 'dark' | 'auto'
+let resolvedTheme = "dark";     // 'light' | 'dark'
 
 let simulationPhases = [];
 let dailyPhases = [];
@@ -26,6 +28,36 @@ let savedSimulations = [];
 let comparedMemoryIds = new Set();
 let isRestoringState = false;
 let lastResult = null;
+
+// Timers para debounce de cálculo y guardado
+let calcDebounceTimer = null;
+let saveDebounceTimer = null;
+
+// Caché de nodos DOM frecuentes
+const domCache = new Map();
+function $id(id) {
+  let el = domCache.get(id);
+  if (!el || !el.isConnected) {
+    el = document.getElementById(id);
+    if (el) domCache.set(id, el);
+  }
+  return el;
+}
+
+// Utilidades de clonación rápida y sanitización HTML
+function cloneList(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((item) => ({ ...item }));
+}
+
+function escapeHTML(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 // Estado del Administrador de Perfiles
 let profilesStore = {
@@ -42,7 +74,7 @@ const REF_FFM_KG = 56.0;
 const REF_FM_KG = 14.0;
 
 // Colecalciferol (D3): alta lipofilia (logP ~7.5) -> mayor partición en masa grasa
-const PK_D3_ALPHA = 0.00041;          // ng/mL por UI efectiva (calibrado a ~14.8 ng/mL por 1000 UI/d a V_rel=1)
+const PK_D3_ALPHA = 0.00041;          // ng/mL por UI efectiva (~14.8 ng/mL por 1000 UI/d a V_rel=1)
 const PK_D3_D50_IU = 180000;          // Dosis semimáxima de saturación CYP2R1 / absorción en bolo (UI)
 const PK_D3_HILL = 0.85;              // Exponente de Hill de saturación en bolo
 const THETA_FFM_D3 = 0.40;            // Fracción alométrica de masa libre de grasa (FFM^0.75)
@@ -68,40 +100,80 @@ const PRIOR_SD_BASELINE = 6.0;        // ng/mL
 const PRIOR_OMEGA_FACTOR = 0.22;      // Desviación log-normal de escala de distribución
 const PRIOR_OMEGA_HALFLIFE = 0.25;    // Desviación log-normal de vida media
 
+const darkMediaQuery =
+  typeof window !== "undefined" && window.matchMedia
+    ? window.matchMedia("(prefers-color-scheme: dark)")
+    : null;
+
 /* ==========================================================================
-   1. SISTEMA DE TEMAS Y MODOS
+   1. SISTEMA UNIFICADO DE TEMAS (DÍA MATE / NOCHE OBSIDIANA / AUTO) Y MODOS
    ========================================================================== */
 
-function setTheme(theme) {
-  const validThemes = ["dark", "clinical", "warm"];
-  currentTheme = validThemes.includes(theme) ? theme : "dark";
-  document.documentElement.setAttribute("data-theme", currentTheme);
+function normalizeThemeMode(theme) {
+  if (theme === "clinical" || theme === "light") return "light";
+  if (theme === "warm" || theme === "dark") return "dark";
+  return "auto";
+}
 
-  const btnDark = document.getElementById("btnThemeDark");
-  const btnClin = document.getElementById("btnThemeClinical");
-  const btnWarm = document.getElementById("btnThemeWarm");
-  if (btnDark) btnDark.classList.toggle("active", currentTheme === "dark");
-  if (btnClin) btnClin.classList.toggle("active", currentTheme === "clinical");
-  if (btnWarm) btnWarm.classList.toggle("active", currentTheme === "warm");
+function applyResolvedTheme(nextResolved) {
+  resolvedTheme = nextResolved === "light" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", resolvedTheme);
+
+  if (!isRestoringState && lastResult) {
+    renderCharts(lastResult, true);
+  }
+}
+
+function setAppTheme(mode) {
+  currentThemeMode = normalizeThemeMode(mode);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, currentThemeMode);
+  } catch (_) {}
+
+  // Sincroniza botones tanto nuevos (Light/Dark/Auto) como legados (Clinical/Warm)
+  const btnLight = $id("btnThemeLight") || $id("btnThemeClinical");
+  const btnDark = $id("btnThemeDark");
+  const btnAuto = $id("btnThemeAuto") || $id("btnThemeWarm");
+
+  if (btnLight) btnLight.classList.toggle("active", currentThemeMode === "light");
+  if (btnDark) btnDark.classList.toggle("active", currentThemeMode === "dark");
+  if (btnAuto) btnAuto.classList.toggle("active", currentThemeMode === "auto");
+
+  if (currentThemeMode === "auto") {
+    const prefersDark = darkMediaQuery ? darkMediaQuery.matches : true;
+    applyResolvedTheme(prefersDark ? "dark" : "light");
+    if (darkMediaQuery) {
+      darkMediaQuery.onchange = (e) => {
+        if (currentThemeMode === "auto") {
+          applyResolvedTheme(e.matches ? "dark" : "light");
+        }
+      };
+    }
+  } else {
+    if (darkMediaQuery) darkMediaQuery.onchange = null;
+    applyResolvedTheme(currentThemeMode);
+  }
 
   if (!isRestoringState) {
-    autoSaveCurrentState();
-    if (lastResult) {
-      renderCharts(lastResult);
-    }
+    scheduleAutoSave();
   }
+}
+
+// Alias compatible con llamadas existentes en HTML
+function setTheme(theme) {
+  setAppTheme(theme);
 }
 
 function setMode(mode) {
   currentMode = mode === "daily" ? "daily" : "simulation";
 
-  const btnSim = document.getElementById("btnModeSimulation");
-  const btnDaily = document.getElementById("btnModeDaily");
+  const btnSim = $id("btnModeSimulation");
+  const btnDaily = $id("btnModeDaily");
   if (btnSim) btnSim.classList.toggle("active", currentMode === "simulation");
   if (btnDaily) btnDaily.classList.toggle("active", currentMode === "daily");
 
-  const simCtrl = document.getElementById("simulationControls");
-  const dayCtrl = document.getElementById("dailyControls");
+  const simCtrl = $id("simulationControls");
+  const dayCtrl = $id("dailyControls");
   if (simCtrl) simCtrl.classList.toggle("hidden", currentMode !== "simulation");
   if (dayCtrl) dayCtrl.classList.toggle("hidden", currentMode !== "daily");
 
@@ -132,26 +204,6 @@ function getBMICategory(bmi) {
   return "Obesidad III";
 }
 
-function bmiFactor(bmi) {
-  if (bmi < 25) return 1.0;
-  if (bmi < 30) return 1.5;
-  if (bmi < 35) return 2.0;
-  if (bmi < 40) return 2.5;
-  return 3.0;
-}
-
-function bodyFatFactor(fatPercent) {
-  if (fatPercent < 24) return 1.0;
-  if (fatPercent < 30) return 1.5;
-  if (fatPercent < 34) return 2.0;
-  if (fatPercent < 40) return 2.5;
-  return 3.0;
-}
-
-/**
- * Resuelve el % de grasa corporal cuando el usuario lo deja vacío (opcional),
- * estimándolo mediante ecuación ajustada por IMC si hay altura.
- */
 function resolveEffectiveFatPercent(weightKg, heightCm, rawFatVal) {
   const parsed = parseFloat(rawFatVal);
   if (!isNaN(parsed) && parsed > 0) {
@@ -185,16 +237,14 @@ function computeAllometricVolumes(weightKg, fatPercent) {
 }
 
 function syncInitialBodyPoint() {
-  const weight = parseFloat(document.getElementById("inputWeight").value) || 0;
-  const height = parseFloat(document.getElementById("inputHeight").value) || 0;
-  const rawFat = document.getElementById("inputFat").value;
+  const weight = parseFloat($id("inputWeight").value) || 0;
+  const height = parseFloat($id("inputHeight").value) || 0;
+  const rawFat = $id("inputFat").value;
   const { fat } = resolveEffectiveFatPercent(weight, height, rawFat);
 
   const weekZeroIdx = bodyProfile.findIndex((p) => p.week === 0);
   if (weight <= 0) {
-    if (weekZeroIdx >= 0) {
-      bodyProfile.splice(weekZeroIdx, 1);
-    }
+    if (weekZeroIdx >= 0) bodyProfile.splice(weekZeroIdx, 1);
   } else if (weekZeroIdx >= 0) {
     bodyProfile[weekZeroIdx].weight = weight;
     bodyProfile[weekZeroIdx].fat = fat;
@@ -205,31 +255,32 @@ function syncInitialBodyPoint() {
 }
 
 function onMainAnthropometryChange() {
-  const weight = parseFloat(document.getElementById("inputWeight").value) || 0;
-  const height = parseFloat(document.getElementById("inputHeight").value) || 0;
-  const rawFat = document.getElementById("inputFat").value;
+  const weight = parseFloat($id("inputWeight").value) || 0;
+  const height = parseFloat($id("inputHeight").value) || 0;
+  const rawFat = $id("inputFat").value;
 
   const active = getActiveProfile();
   if (active) {
     active.weight = weight;
     active.height = height;
-    active.fat = rawFat !== "" && !isNaN(parseFloat(rawFat)) && parseFloat(rawFat) > 0
-      ? parseFloat(rawFat)
-      : null;
+    active.fat =
+      rawFat !== "" && !isNaN(parseFloat(rawFat)) && parseFloat(rawFat) > 0
+        ? parseFloat(rawFat)
+        : null;
     saveProfilesStore();
     renderProfileSelectors();
   }
 
   syncInitialBodyPoint();
   updateIndicators();
-  calculate();
+  scheduleCalculate();
 }
 
 function updateIndicators() {
-  const weight = parseFloat(document.getElementById("inputWeight").value) || 0;
-  const height = parseFloat(document.getElementById("inputHeight").value) || 0;
-  const rawFat = document.getElementById("inputFat").value;
-  const factorScale = parseFloat(document.getElementById("inputFactorOverride").value) || 1.0;
+  const weight = parseFloat($id("inputWeight").value) || 0;
+  const height = parseFloat($id("inputHeight").value) || 0;
+  const rawFat = $id("inputFat").value;
+  const factorScale = parseFloat($id("inputFactorOverride").value) || 1.0;
 
   const bmi = calculateBMI(weight, height);
   const resolvedFat = resolveEffectiveFatPercent(weight, height, rawFat);
@@ -237,20 +288,19 @@ function updateIndicators() {
   const effD3 = vols.vRelD3 * factorScale;
   const eff25D = vols.vRel25D * factorScale;
 
-  document.getElementById("bmiValue").innerText = bmi > 0 ? bmi.toFixed(1) : "--";
-  document.getElementById("bmiCategory").innerText = bmi > 0 ? getBMICategory(bmi) : "--";
+  $id("bmiValue").innerText = bmi > 0 ? bmi.toFixed(1) : "--";
+  $id("bmiCategory").innerText = bmi > 0 ? getBMICategory(bmi) : "--";
 
   if (weight > 0) {
-    document.getElementById("fatValue").innerText =
+    $id("fatValue").innerText =
       resolvedFat.fat.toFixed(1) + "%" + (resolvedFat.isEstimated ? " (est.)" : "");
-    document.getElementById("ffmFmDetail").innerText =
-      `FFM ${vols.ffm.toFixed(1)} kg • FM ${vols.fm.toFixed(1)} kg`;
+    $id("ffmFmDetail").innerText = `FFM ${vols.ffm.toFixed(1)} kg • FM ${vols.fm.toFixed(1)} kg`;
   } else {
-    document.getElementById("fatValue").innerText = "--";
-    document.getElementById("ffmFmDetail").innerText = "Masa magra / grasa";
+    $id("fatValue").innerText = "--";
+    $id("ffmFmDetail").innerText = "Masa magra / grasa";
   }
 
-  const hintEl = document.getElementById("fatHintBadge");
+  const hintEl = $id("fatHintBadge");
   if (hintEl) {
     if (weight > 0 && resolvedFat.isEstimated) {
       hintEl.innerText =
@@ -262,8 +312,8 @@ function updateIndicators() {
     }
   }
 
-  document.getElementById("factorValue").innerText = "x" + effD3.toFixed(2);
-  document.getElementById("hydroFactorValue").innerText = "x" + eff25D.toFixed(2);
+  $id("factorValue").innerText = "x" + effD3.toFixed(2);
+  $id("hydroFactorValue").innerText = "x" + eff25D.toFixed(2);
   updateHeaderProfilePill();
 }
 
@@ -272,15 +322,13 @@ function updateIndicators() {
    ========================================================================== */
 
 function addBodyPoint() {
-  const week = parseFloat(document.getElementById("bodyWeek").value);
-  const weight = parseFloat(document.getElementById("bodyWeight").value);
-  const rawFat = document.getElementById("bodyFat").value;
+  const week = parseFloat($id("bodyWeek").value);
+  const weight = parseFloat($id("bodyWeight").value);
+  const rawFat = $id("bodyFat").value;
 
-  if (isNaN(week) || week < 0 || isNaN(weight) || weight <= 0) {
-    return;
-  }
+  if (isNaN(week) || week < 0 || isNaN(weight) || weight <= 0) return;
 
-  const height = parseFloat(document.getElementById("inputHeight").value) || 0;
+  const height = parseFloat($id("inputHeight").value) || 0;
   const { fat } = resolveEffectiveFatPercent(weight, height, rawFat);
 
   const existingIdx = bodyProfile.findIndex((p) => p.week === week);
@@ -293,9 +341,9 @@ function addBodyPoint() {
   bodyProfile.sort((a, b) => a.week - b.week);
 
   if (week === 0) {
-    document.getElementById("inputWeight").value = weight;
+    $id("inputWeight").value = weight;
     if (rawFat !== "" && !isNaN(parseFloat(rawFat)) && parseFloat(rawFat) > 0) {
-      document.getElementById("inputFat").value = fat;
+      $id("inputFat").value = fat;
     }
     const active = getActiveProfile();
     if (active) {
@@ -308,9 +356,9 @@ function addBodyPoint() {
     updateIndicators();
   }
 
-  document.getElementById("bodyWeek").value = "";
-  document.getElementById("bodyWeight").value = "";
-  document.getElementById("bodyFat").value = "";
+  $id("bodyWeek").value = "";
+  $id("bodyWeight").value = "";
+  $id("bodyFat").value = "";
 
   renderBodyProfile();
   calculate();
@@ -323,7 +371,7 @@ function removeBodyPoint(index) {
 }
 
 function renderBodyProfile() {
-  const tbody = document.getElementById("bodyProfileList");
+  const tbody = $id("bodyProfileList");
   if (!tbody) return;
 
   if (bodyProfile.length === 0) {
@@ -344,25 +392,20 @@ function renderBodyProfile() {
     .join("");
 }
 
-function getBodyAtWeek(week) {
-  const fallbackWeight = parseFloat(document.getElementById("inputWeight").value) || 0;
-  const fallbackHeight = parseFloat(document.getElementById("inputHeight").value) || 0;
-  const rawFat = document.getElementById("inputFat").value;
-  const fallbackFat = resolveEffectiveFatPercent(fallbackWeight, fallbackHeight, rawFat).fat;
+function getBodyAtWeek(week, sortedProfile = null, fallback = null) {
+  const fb = fallback || (() => {
+    const w = parseFloat($id("inputWeight").value) || 0;
+    const h = parseFloat($id("inputHeight").value) || 0;
+    const f = resolveEffectiveFatPercent(w, h, $id("inputFat").value).fat;
+    return { weight: w, fat: f };
+  })();
 
-  if (!bodyProfile || bodyProfile.length === 0) {
-    return { weight: fallbackWeight, fat: fallbackFat };
-  }
+  const sorted = sortedProfile || [...bodyProfile].sort((a, b) => a.week - b.week);
+  if (sorted.length === 0) return fb;
 
-  const sorted = [...bodyProfile].sort((a, b) => a.week - b.week);
-
-  if (week <= sorted[0].week) {
-    return { weight: sorted[0].weight, fat: sorted[0].fat };
-  }
+  if (week <= sorted[0].week) return { weight: sorted[0].weight, fat: sorted[0].fat };
   const last = sorted[sorted.length - 1];
-  if (week >= last.week) {
-    return { weight: last.weight, fat: last.fat };
-  }
+  if (week >= last.week) return { weight: last.weight, fat: last.fat };
 
   for (let i = 0; i < sorted.length - 1; i++) {
     const p1 = sorted[i];
@@ -377,7 +420,7 @@ function getBodyAtWeek(week) {
     }
   }
 
-  return { weight: fallbackWeight, fat: fallbackFat };
+  return fb;
 }
 
 /* ==========================================================================
@@ -385,8 +428,8 @@ function getBodyAtWeek(week) {
    ========================================================================== */
 
 function applyHydroPreset() {
-  const preset = document.getElementById("hydroPreset").value;
-  const mgInput = document.getElementById("hydroMg");
+  const preset = $id("hydroPreset").value;
+  const mgInput = $id("hydroMg");
   if (preset === "0") {
     mgInput.value = "";
   } else if (preset !== "custom") {
@@ -395,8 +438,8 @@ function applyHydroPreset() {
 }
 
 function syncHydroPresetFromInput() {
-  const val = parseFloat(document.getElementById("hydroMg").value);
-  const presetSelect = document.getElementById("hydroPreset");
+  const val = parseFloat($id("hydroMg").value);
+  const presetSelect = $id("hydroPreset");
   if (isNaN(val) || val <= 0) {
     presetSelect.value = "0";
     return;
@@ -407,9 +450,9 @@ function syncHydroPresetFromInput() {
 }
 
 function addHydroferolDose() {
-  const day = parseFloat(document.getElementById("hydroDay").value);
-  const mg = parseFloat(document.getElementById("hydroMg").value);
-  const noteInput = document.getElementById("hydroNote");
+  const day = parseFloat($id("hydroDay").value);
+  const mg = parseFloat($id("hydroMg").value);
+  const noteInput = $id("hydroNote");
   const note = noteInput ? noteInput.value.trim() : "";
 
   if (isNaN(day) || day < 0 || isNaN(mg) || mg <= 0) return;
@@ -422,7 +465,7 @@ function addHydroferolDose() {
 
   hydroferolDoses.sort((a, b) => a.day - b.day);
 
-  document.getElementById("hydroDay").value = "";
+  $id("hydroDay").value = "";
   if (noteInput) noteInput.value = "";
 
   renderHydroferolDoses();
@@ -436,7 +479,7 @@ function deleteHydroferolDose(index) {
 }
 
 function renderHydroferolDoses() {
-  const tbody = document.getElementById("hydroferolDosesList");
+  const tbody = $id("hydroferolDosesList");
   if (!tbody) return;
 
   if (hydroferolDoses.length === 0) {
@@ -448,11 +491,12 @@ function renderHydroferolDoses() {
     .map((h, idx) => {
       const wk = (h.day / 7).toFixed(1);
       const ug = Math.round(h.mg * 1000);
+      const safeNote = h.note ? escapeHTML(h.note) : "—";
       return `
       <tr>
         <td>Día ${h.day} <span style="color:var(--text-muted)">(S${wk})</span></td>
         <td>${h.mg.toFixed(3)} mg <span style="color:var(--text-muted)">(${ug} µg)</span></td>
-        <td>${h.note || "—"}</td>
+        <td>${safeNote}</td>
         <td><button type="button" class="btn-del" onclick="deleteHydroferolDose(${idx})" title="Eliminar">×</button></td>
       </tr>`;
     })
@@ -464,15 +508,15 @@ function renderHydroferolDoses() {
    ========================================================================== */
 
 function toggleBloodPanel() {
-  const body = document.getElementById("bloodPanelBody");
-  const icon = document.getElementById("bloodToggleIcon");
+  const body = $id("bloodPanelBody");
+  const icon = $id("bloodToggleIcon");
   const isHidden = body.classList.toggle("hidden");
   icon.innerText = isHidden ? "▶" : "▼";
 }
 
 function addBloodPoint() {
-  const week = parseFloat(document.getElementById("bloodWeek").value);
-  const level = parseFloat(document.getElementById("bloodLevel").value);
+  const week = parseFloat($id("bloodWeek").value);
+  const level = parseFloat($id("bloodLevel").value);
 
   if (isNaN(week) || week < 0 || isNaN(level) || level < 0) return;
 
@@ -485,23 +529,23 @@ function addBloodPoint() {
 
   bloodMeasurements.sort((a, b) => a.week - b.week);
 
-  document.getElementById("bloodWeek").value = "";
-  document.getElementById("bloodLevel").value = "";
+  $id("bloodWeek").value = "";
+  $id("bloodLevel").value = "";
 
   renderBloodRows();
-  autoSaveCurrentState();
+  scheduleAutoSave();
   if (lastResult) calculate();
 }
 
 function deleteBloodPoint(index) {
   bloodMeasurements.splice(index, 1);
   renderBloodRows();
-  autoSaveCurrentState();
+  scheduleAutoSave();
   if (lastResult) calculate();
 }
 
 function renderBloodRows() {
-  const tbody = document.getElementById("bloodRowsList");
+  const tbody = $id("bloodRowsList");
   if (!tbody) return;
 
   if (bloodMeasurements.length === 0) {
@@ -526,16 +570,16 @@ function renderBloodRows() {
    ========================================================================== */
 
 function addCustomDose() {
-  const week = parseFloat(document.getElementById("customWeek").value);
-  const iu = parseFloat(document.getElementById("customIU").value);
+  const week = parseFloat($id("customWeek").value);
+  const iu = parseFloat($id("customIU").value);
 
   if (isNaN(week) || week < 0 || isNaN(iu) || iu <= 0) return;
 
   customDoses.push({ week, iu });
   customDoses.sort((a, b) => a.week - b.week);
 
-  document.getElementById("customWeek").value = "";
-  document.getElementById("customIU").value = "";
+  $id("customWeek").value = "";
+  $id("customIU").value = "";
 
   renderCustomDoses();
   calculate();
@@ -548,7 +592,7 @@ function deleteCustomDose(index) {
 }
 
 function renderCustomDoses() {
-  const tbody = document.getElementById("customDosesList");
+  const tbody = $id("customDosesList");
   if (!tbody) return;
 
   if (customDoses.length === 0) {
@@ -569,9 +613,9 @@ function renderCustomDoses() {
 }
 
 function addDailyPhase() {
-  const startWeek = parseFloat(document.getElementById("dailyStart").value);
-  const endWeek = parseFloat(document.getElementById("dailyEnd").value);
-  const dailyIU = parseFloat(document.getElementById("dailyIU").value);
+  const startWeek = parseFloat($id("dailyStart").value);
+  const endWeek = parseFloat($id("dailyEnd").value);
+  const dailyIU = parseFloat($id("dailyIU").value);
 
   if (isNaN(startWeek) || isNaN(endWeek) || endWeek <= startWeek || isNaN(dailyIU) || dailyIU <= 0) {
     return;
@@ -584,9 +628,9 @@ function addDailyPhase() {
     dailyIU
   });
 
-  document.getElementById("dailyStart").value = "";
-  document.getElementById("dailyEnd").value = "";
-  document.getElementById("dailyIU").value = "";
+  $id("dailyStart").value = "";
+  $id("dailyEnd").value = "";
+  $id("dailyIU").value = "";
 
   renderDailyPhases();
   calculate();
@@ -599,7 +643,7 @@ function deleteDailyPhase(index) {
 }
 
 function renderDailyPhases() {
-  const tbody = document.getElementById("dailyPhasesList");
+  const tbody = $id("dailyPhasesList");
   if (!tbody) return;
 
   if (dailyPhases.length === 0) {
@@ -611,7 +655,7 @@ function renderDailyPhases() {
     .map(
       (p, idx) => `
       <tr>
-        <td>${p.name}</td>
+        <td>${escapeHTML(p.name)}</td>
         <td>${p.startWeek}–${p.endWeek}</td>
         <td>${p.dailyIU.toLocaleString("es-CL")} UI</td>
         <td><button type="button" class="btn-del" onclick="deleteDailyPhase(${idx})" title="Eliminar">×</button></td>
@@ -628,7 +672,7 @@ function computeDoseEfficiency(dose) {
 }
 
 function buildSchedule() {
-  const horizonWeeks = parseFloat(document.getElementById("inputHorizon").value) || 0;
+  const horizonWeeks = parseFloat($id("inputHorizon").value) || 0;
   const horizonDays = horizonWeeks * 7;
   const doses = [];
 
@@ -638,13 +682,14 @@ function buildSchedule() {
   }
 
   if (currentMode === "simulation") {
-    const repIU = parseFloat(document.getElementById("repIU").value) || 0;
-    const repInterval = parseFloat(document.getElementById("repInterval").value) || 0;
-    const repCount = parseInt(document.getElementById("repCount").value, 10) || 0;
-    const repStartWeek = parseFloat(document.getElementById("repStartWeek").value) || 0;
+    const repIU = parseFloat($id("repIU").value) || 0;
+    const repInterval = parseFloat($id("repInterval").value) || 0;
+    const repCount = parseInt($id("repCount").value, 10) || 0;
+    const repStartWeek = parseFloat($id("repStartWeek").value) || 0;
 
     simulationPhases = [];
     if (repIU > 0 && repCount > 0 && repInterval > 0) {
+      const eff = computeDoseEfficiency({ type: "d3", iu: repIU });
       for (let i = 0; i < repCount; i++) {
         const w = repStartWeek + i * repInterval;
         if (w <= horizonWeeks) {
@@ -653,16 +698,17 @@ function buildSchedule() {
             type: "d3",
             week: Number(w.toFixed(2)),
             day: w * 7,
-            iu: repIU
+            iu: repIU,
+            efficiency: eff
           };
-          item.efficiency = computeDoseEfficiency(item);
           simulationPhases.push(item);
           doses.push(item);
         }
       }
     }
 
-    customDoses.forEach((cd) => {
+    for (let i = 0; i < customDoses.length; i++) {
+      const cd = customDoses[i];
       if (cd.week <= horizonWeeks && cd.iu > 0) {
         const item = {
           phase: "Dosis Libre (D₃)",
@@ -674,26 +720,28 @@ function buildSchedule() {
         item.efficiency = computeDoseEfficiency(item);
         doses.push(item);
       }
-    });
+    }
   } else {
-    dailyPhases.forEach((dp) => {
+    for (let i = 0; i < dailyPhases.length; i++) {
+      const dp = dailyPhases[i];
       const startDay = Math.max(0, Math.round(dp.startWeek * 7));
       const endDay = Math.min(Math.round(horizonDays), Math.round(dp.endWeek * 7));
+      const eff = computeDoseEfficiency({ type: "d3", iu: dp.dailyIU });
       for (let d = startDay; d < endDay; d++) {
-        const item = {
+        doses.push({
           phase: dp.name,
           type: "d3",
           week: Number((d / 7).toFixed(2)),
           day: d,
-          iu: dp.dailyIU
-        };
-        item.efficiency = computeDoseEfficiency(item);
-        doses.push(item);
+          iu: dp.dailyIU,
+          efficiency: eff
+        });
       }
-    });
+    }
   }
 
-  hydroferolDoses.forEach((hd) => {
+  for (let i = 0; i < hydroferolDoses.length; i++) {
+    const hd = hydroferolDoses[i];
     if (hd.day <= horizonDays && hd.mg > 0) {
       const ug = hd.mg * 1000;
       const item = {
@@ -709,7 +757,7 @@ function buildSchedule() {
       item.efficiency = computeDoseEfficiency(item);
       doses.push(item);
     }
-  });
+  }
 
   doses.sort((a, b) => a.day - b.day);
   return { doses };
@@ -719,53 +767,64 @@ function buildSchedule() {
    7. MOTOR FARMACOCINÉTICO EDO RK4 (CONSERVACIÓN DE MASA + CYP24A1)
    ========================================================================== */
 
-function buildBodyTimeline(totalDays, stepDays) {
+function buildBodyTimeline(totalDays, stepDays = 0.5) {
   const steps = Math.floor(totalDays / stepDays) + 1;
   const weights = new Float64Array(steps);
   const vRelD3Arr = new Float64Array(steps);
   const vRel25DArr = new Float64Array(steps);
 
+  const sortedProfile = [...bodyProfile].sort((a, b) => a.week - b.week);
+  const fbWeight = parseFloat($id("inputWeight").value) || 0;
+  const fbHeight = parseFloat($id("inputHeight").value) || 0;
+  const fbFat = resolveEffectiveFatPercent(fbWeight, fbHeight, $id("inputFat").value).fat;
+  const fallback = { weight: fbWeight, fat: fbFat };
+
   for (let idx = 0; idx < steps; idx++) {
     const w = (idx * stepDays) / 7;
-    const body = getBodyAtWeek(w);
+    const body = getBodyAtWeek(w, sortedProfile, fallback);
     const vols = computeAllometricVolumes(body.weight, body.fat);
     weights[idx] = body.weight;
     vRelD3Arr[idx] = vols.vRelD3;
     vRel25DArr[idx] = vols.vRel25D;
   }
 
-  return { steps, weights, vRelD3Arr, vRel25DArr };
+  return { stepDays, steps, weights, vRelD3Arr, vRel25DArr };
 }
 
 function integrateTrajectory(maxDay, doses, params, precomputedTimeline = null) {
   const { baseline, halfLife, ka, factorScale } = params;
   const keBase = Math.LN2 / Math.max(5, halfLife);
   const fScale = Math.max(0.4, factorScale || 1.0);
-  const stepDays = 0.5;
+  const stepDays = precomputedTimeline ? precomputedTimeline.stepDays : 0.5;
 
   const timeline = precomputedTimeline || buildBodyTimeline(maxDay, stepDays);
   const steps = Math.min(timeline.steps, Math.floor(maxDay / stepDays) + 1);
 
-  const weeks = new Array(steps);
-  const levels = new Array(steps);
-  const weights = new Array(steps);
+  const weeks = new Float64Array(steps);
+  const levels = new Float64Array(steps);
+  const weights = new Float64Array(steps);
 
   let gutD3 = 0.0;
   let gut25D = 0.0;
   let poolD3 = 0.0;
   let pool25D = 0.0;
   let doseIdx = 0;
+  const nDoses = doses.length;
 
   const calcKeEff = (conc) => {
-    const excess = Math.max(0, conc - CYP24A1_THRESHOLD);
+    const excess = conc - CYP24A1_THRESHOLD;
     if (excess <= 0) return keBase;
     return keBase * (1.0 + (CYP24A1_EMAX * excess) / (CYP24A1_EC50 + excess));
   };
 
+  const h = stepDays;
+  const halfH = 0.5 * h;
+  const sixthH = h / 6.0;
+
   for (let idx = 0; idx < steps; idx++) {
     const day = idx * stepDays;
 
-    while (doseIdx < doses.length && doses[doseIdx].day <= day + 1e-6) {
+    while (doseIdx < nDoses && doses[doseIdx].day <= day + 1e-6) {
       const d = doses[doseIdx];
       const eff = d.efficiency !== undefined ? d.efficiency : computeDoseEfficiency(d);
       if (d.type === "calcifediol") {
@@ -780,68 +839,78 @@ function integrateTrajectory(maxDay, doses, params, precomputedTimeline = null) 
     const v25D = timeline.vRel25DArr[idx] * fScale;
     const conc = baseline + poolD3 / vD3 + pool25D / v25D;
 
-    weeks[idx] = Number((day / 7).toFixed(3));
-    levels[idx] = Number(conc.toFixed(2));
-    weights[idx] = Number(timeline.weights[idx].toFixed(1));
+    weeks[idx] = Math.round((day / 7) * 1000) / 1000;
+    levels[idx] = Math.round(conc * 100) / 100;
+    weights[idx] = Math.round(timeline.weights[idx] * 10) / 10;
 
     if (idx === steps - 1) break;
 
-    const h = stepDays;
     const vD3Next = timeline.vRelD3Arr[idx + 1] * fScale;
     const v25DNext = timeline.vRel25DArr[idx + 1] * fScale;
     const vD3Mid = 0.5 * (vD3 + vD3Next);
     const v25DMid = 0.5 * (v25D + v25DNext);
 
-    const derivs = (g3, g25, p3, p25, vd3Curr, vd25Curr) => {
-      const cCurr = baseline + p3 / vd3Curr + p25 / vd25Curr;
-      const ke = calcKeEff(cCurr);
-      const abs3 = ka * g3;
-      const abs25 = PK_25D_KA * g25;
-      return {
-        dg3: -abs3,
-        dg25: -abs25,
-        dp3: abs3 - ke * p3,
-        dp25: abs25 - ke * p25
-      };
-    };
+    // RK4 inline sin asignación de objetos intermedios
+    const ke1 = calcKeEff(conc);
+    const abs3_1 = ka * gutD3;
+    const abs25_1 = PK_25D_KA * gut25D;
+    const dg3_1 = -abs3_1;
+    const dg25_1 = -abs25_1;
+    const dp3_1 = abs3_1 - ke1 * poolD3;
+    const dp25_1 = abs25_1 - ke1 * pool25D;
 
-    const k1 = derivs(gutD3, gut25D, poolD3, pool25D, vD3, v25D);
-    const k2 = derivs(
-      gutD3 + 0.5 * h * k1.dg3,
-      gut25D + 0.5 * h * k1.dg25,
-      poolD3 + 0.5 * h * k1.dp3,
-      pool25D + 0.5 * h * k1.dp25,
-      vD3Mid,
-      v25DMid
-    );
-    const k3 = derivs(
-      gutD3 + 0.5 * h * k2.dg3,
-      gut25D + 0.5 * h * k2.dg25,
-      poolD3 + 0.5 * h * k2.dp3,
-      pool25D + 0.5 * h * k2.dp25,
-      vD3Mid,
-      v25DMid
-    );
-    const k4 = derivs(
-      gutD3 + h * k3.dg3,
-      gut25D + h * k3.dg25,
-      poolD3 + h * k3.dp3,
-      pool25D + h * k3.dp25,
-      vD3Next,
-      v25DNext
-    );
+    const g3_2 = gutD3 + halfH * dg3_1;
+    const g25_2 = gut25D + halfH * dg25_1;
+    const p3_2 = poolD3 + halfH * dp3_1;
+    const p25_2 = pool25D + halfH * dp25_1;
+    const ke2 = calcKeEff(baseline + p3_2 / vD3Mid + p25_2 / v25DMid);
+    const abs3_2 = ka * g3_2;
+    const abs25_2 = PK_25D_KA * g25_2;
+    const dg3_2 = -abs3_2;
+    const dg25_2 = -abs25_2;
+    const dp3_2 = abs3_2 - ke2 * p3_2;
+    const dp25_2 = abs25_2 - ke2 * p25_2;
 
-    gutD3 = Math.max(0, gutD3 + (h / 6) * (k1.dg3 + 2 * k2.dg3 + 2 * k3.dg3 + k4.dg3));
-    gut25D = Math.max(0, gut25D + (h / 6) * (k1.dg25 + 2 * k2.dg25 + 2 * k3.dg25 + k4.dg25));
-    poolD3 = Math.max(0, poolD3 + (h / 6) * (k1.dp3 + 2 * k2.dp3 + 2 * k3.dp3 + k4.dp3));
-    pool25D = Math.max(0, pool25D + (h / 6) * (k1.dp25 + 2 * k2.dp25 + 2 * k3.dp25 + k4.dp25));
+    const g3_3 = gutD3 + halfH * dg3_2;
+    const g25_3 = gut25D + halfH * dg25_2;
+    const p3_3 = poolD3 + halfH * dp3_2;
+    const p25_3 = pool25D + halfH * dp25_2;
+    const ke3 = calcKeEff(baseline + p3_3 / vD3Mid + p25_3 / v25DMid);
+    const abs3_3 = ka * g3_3;
+    const abs25_3 = PK_25D_KA * g25_3;
+    const dg3_3 = -abs3_3;
+    const dg25_3 = -abs25_3;
+    const dp3_3 = abs3_3 - ke3 * p3_3;
+    const dp25_3 = abs25_3 - ke3 * p25_3;
+
+    const g3_4 = gutD3 + h * dg3_3;
+    const g25_4 = gut25D + h * dg25_3;
+    const p3_4 = poolD3 + h * dp3_3;
+    const p25_4 = pool25D + h * dp25_3;
+    const ke4 = calcKeEff(baseline + p3_4 / vD3Next + p25_4 / v25DNext);
+    const abs3_4 = ka * g3_4;
+    const abs25_4 = PK_25D_KA * g25_4;
+    const dg3_4 = -abs3_4;
+    const dg25_4 = -abs25_4;
+    const dp3_4 = abs3_4 - ke4 * p3_4;
+    const dp25_4 = abs25_4 - ke4 * p25_4;
+
+    gutD3 = Math.max(0, gutD3 + sixthH * (dg3_1 + 2 * dg3_2 + 2 * dg3_3 + dg3_4));
+    gut25D = Math.max(0, gut25D + sixthH * (dg25_1 + 2 * dg25_2 + 2 * dg25_3 + dg25_4));
+    poolD3 = Math.max(0, poolD3 + sixthH * (dp3_1 + 2 * dp3_2 + 2 * dp3_3 + dp3_4));
+    pool25D = Math.max(0, pool25D + sixthH * (dp25_1 + 2 * dp25_2 + 2 * dp25_3 + dp25_4));
   }
 
-  return { weeks, levels, weights };
+  return {
+    stepDays,
+    weeks: Array.from(weeks),
+    levels: Array.from(levels),
+    weights: Array.from(weights)
+  };
 }
 
 function interpolateTrajectoryAtDay(traj, day) {
-  const stepDays = 0.5;
+  const stepDays = traj.stepDays || 0.5;
   const exactIdx = day / stepDays;
   const i0 = Math.max(0, Math.min(traj.levels.length - 1, Math.floor(exactIdx)));
   const i1 = Math.max(0, Math.min(traj.levels.length - 1, i0 + 1));
@@ -858,6 +927,8 @@ function computeUncertaintyBands(levels, baseline, measurementCount) {
   const n = Math.max(0, measurementCount || 0);
   const paramCV = 0.16 / Math.sqrt(1 + 0.85 * n);
   const baseSD = 2.6 / Math.sqrt(1 + 0.9 * n);
+  const baseSD2 = baseSD * baseSD;
+  const addSD2 = ASSAY_SIGMA_ADD * ASSAY_SIGMA_ADD;
 
   const ciLow = new Array(levels.length);
   const ciHigh = new Array(levels.length);
@@ -865,22 +936,22 @@ function computeUncertaintyBands(levels, baseline, measurementCount) {
   for (let i = 0; i < levels.length; i++) {
     const c = levels[i];
     const deltaC = Math.max(0, c - baseline);
-    const assaySD = Math.sqrt(ASSAY_SIGMA_ADD * ASSAY_SIGMA_ADD + Math.pow(ASSAY_SIGMA_PROP * c, 2));
-    const totalSD = Math.sqrt(Math.pow(paramCV * deltaC, 2) + baseSD * baseSD + assaySD * assaySD);
+    const assaySD2 = addSD2 + Math.pow(ASSAY_SIGMA_PROP * c, 2);
+    const totalSD = Math.sqrt(Math.pow(paramCV * deltaC, 2) + baseSD2 + assaySD2);
 
-    ciLow[i] = Number(Math.max(0, c - 1.96 * totalSD).toFixed(2));
-    ciHigh[i] = Number((c + 1.96 * totalSD).toFixed(2));
+    ciLow[i] = Math.round(Math.max(0, c - 1.96 * totalSD) * 100) / 100;
+    ciHigh[i] = Math.round((c + 1.96 * totalSD) * 100) / 100;
   }
 
   return { ciLow, ciHigh };
 }
 
 function runSimulation() {
-  const horizonWeeks = parseFloat(document.getElementById("inputHorizon").value) || 0;
-  const baseline = parseFloat(document.getElementById("inputBaseline").value) || 0;
-  const halfLife = parseFloat(document.getElementById("inputHalfLife").value) || 25;
-  const ka = parseFloat(document.getElementById("inputKa").value) || 0.28;
-  const factorScale = parseFloat(document.getElementById("inputFactorOverride").value) || 1.0;
+  const horizonWeeks = parseFloat($id("inputHorizon").value) || 0;
+  const baseline = parseFloat($id("inputBaseline").value) || 0;
+  const halfLife = parseFloat($id("inputHalfLife").value) || 25;
+  const ka = parseFloat($id("inputKa").value) || 0.28;
+  const factorScale = parseFloat($id("inputFactorOverride").value) || 1.0;
 
   const schedule = buildSchedule();
 
@@ -916,16 +987,16 @@ function runSimulation() {
    ========================================================================== */
 
 function estimateBaseline() {
-  const out = document.getElementById("calibrationOutput");
+  const out = $id("calibrationOutput");
   if (!bloodMeasurements || bloodMeasurements.length === 0) {
     out.innerText = "Agregue al menos una medición sérica para estimar el baseline.";
     return null;
   }
 
   const schedule = buildSchedule();
-  const halfLife = parseFloat(document.getElementById("inputHalfLife").value) || 25;
-  const ka = parseFloat(document.getElementById("inputKa").value) || 0.28;
-  const factorScale = parseFloat(document.getElementById("inputFactorOverride").value) || 1.0;
+  const halfLife = parseFloat($id("inputHalfLife").value) || 25;
+  const ka = parseFloat($id("inputKa").value) || 0.28;
+  const factorScale = parseFloat($id("inputFactorOverride").value) || 1.0;
 
   const maxDay = Math.max(...bloodMeasurements.map((m) => m.week * 7), 1);
   const trajZero = integrateTrajectory(maxDay, schedule.doses, {
@@ -946,14 +1017,14 @@ function estimateBaseline() {
   });
 
   const estimated = weightedSum / Math.max(1e-6, weightTotal);
-  document.getElementById("inputBaseline").value = estimated.toFixed(1);
+  $id("inputBaseline").value = estimated.toFixed(1);
 
   out.innerHTML = `<strong>Baseline estimado (ponderado por sensibilidad):</strong> ${estimated.toFixed(1)} ng/mL.`;
   calculate();
   return estimated;
 }
 
-function nelderMead3D(objectiveFn, startPoint, steps, maxIter = 85) {
+function nelderMead3D(objectiveFn, startPoint, steps, maxIter = 75) {
   let simplex = [
     { x: [...startPoint], fx: objectiveFn(startPoint) },
     { x: [startPoint[0] + steps[0], startPoint[1], startPoint[2]], fx: 0 },
@@ -999,26 +1070,29 @@ function nelderMead3D(objectiveFn, startPoint, steps, maxIter = 85) {
   return simplex[0];
 }
 
-function fitMAPSubset(measurementsSubset, doses, ka, priorBase, timeline) {
-  const mapObjective = (theta) => {
+function fitMAPSubset(measurementsSubset, doses, ka, priorBase, timelineFine, timelineCoarse) {
+  const maxDay = Math.max(...measurementsSubset.map((m) => m.week * 7), 1);
+
+  const buildObjective = (activeTimeline) => (theta) => {
     const [base, scale, hl] = theta;
     if (base < 0 || base > 65 || scale < 0.55 || scale > 1.85 || hl < 12 || hl > 45) {
       return 1e9;
     }
 
-    const maxDay = Math.max(...measurementsSubset.map((m) => m.week * 7), 1);
-    const traj = integrateTrajectory(maxDay, doses, {
-      baseline: base,
-      halfLife: hl,
-      ka,
-      factorScale: scale
-    }, timeline);
+    const traj = integrateTrajectory(
+      maxDay,
+      doses,
+      { baseline: base, halfLife: hl, ka, factorScale: scale },
+      activeTimeline
+    );
 
     let logLikLoss = 0;
     for (let i = 0; i < measurementsSubset.length; i++) {
       const m = measurementsSubset[i];
       const pred = interpolateTrajectoryAtDay(traj, m.week * 7);
-      const sigma = Math.sqrt(ASSAY_SIGMA_ADD * ASSAY_SIGMA_ADD + Math.pow(ASSAY_SIGMA_PROP * pred, 2));
+      const sigma = Math.sqrt(
+        ASSAY_SIGMA_ADD * ASSAY_SIGMA_ADD + Math.pow(ASSAY_SIGMA_PROP * pred, 2)
+      );
       const z = (m.level - pred) / sigma;
       logLikLoss += z * z;
     }
@@ -1031,13 +1105,16 @@ function fitMAPSubset(measurementsSubset, doses, ka, priorBase, timeline) {
     return logLikLoss + priorPenalty;
   };
 
-  let bestInit = [priorBase, 1.0, 25.0];
-  let bestVal = mapObjective(bestInit);
+  const coarseObjective = buildObjective(timelineCoarse);
+  const fineObjective = buildObjective(timelineFine);
 
-  for (let b = Math.max(2, priorBase - 12); b <= Math.min(50, priorBase + 12); b += 4) {
-    for (let s = 0.65; s <= 1.55; s += 0.15) {
-      for (let h = 15; h <= 37; h += 5.5) {
-        const val = mapObjective([b, s, h]);
+  let bestInit = [priorBase, 1.0, 25.0];
+  let bestVal = coarseObjective(bestInit);
+
+  for (let b = Math.max(2, priorBase - 12); b <= Math.min(50, priorBase + 12); b += 6) {
+    for (let s = 0.7; s <= 1.5; s += 0.2) {
+      for (let h = 16; h <= 36; h += 6.5) {
+        const val = coarseObjective([b, s, h]);
         if (val < bestVal) {
           bestVal = val;
           bestInit = [b, s, h];
@@ -1046,7 +1123,7 @@ function fitMAPSubset(measurementsSubset, doses, ka, priorBase, timeline) {
     }
   }
 
-  const refined = nelderMead3D(mapObjective, bestInit, [1.5, 0.08, 2.0], 75);
+  const refined = nelderMead3D(fineObjective, bestInit, [1.5, 0.08, 2.0], 65);
   return {
     baseline: refined.x[0],
     factorScale: refined.x[1],
@@ -1056,28 +1133,37 @@ function fitMAPSubset(measurementsSubset, doses, ka, priorBase, timeline) {
 }
 
 function calibrateModel() {
-  const out = document.getElementById("calibrationOutput");
+  const out = $id("calibrationOutput");
   if (!bloodMeasurements || bloodMeasurements.length < 1) {
     out.innerText = "Se requiere al menos 1 medición sérica para ejecutar la calibración Bayesiana MAP.";
     return null;
   }
 
   const schedule = buildSchedule();
-  const ka = parseFloat(document.getElementById("inputKa").value) || 0.28;
+  const ka = parseFloat($id("inputKa").value) || 0.28;
   const maxDay = Math.max(...bloodMeasurements.map((m) => m.week * 7), 1);
-  const timeline = buildBodyTimeline(maxDay, 0.5);
+  const timelineFine = buildBodyTimeline(maxDay, 0.5);
+  const timelineCoarse = buildBodyTimeline(maxDay, 1.0);
 
   const earliest = [...bloodMeasurements].sort((a, b) => a.week - b.week)[0];
-  const priorBase = earliest.week === 0 ? earliest.level : (parseFloat(document.getElementById("inputBaseline").value) || 0);
+  const priorBase =
+    earliest.week === 0 ? earliest.level : parseFloat($id("inputBaseline").value) || 0;
 
-  const fit = fitMAPSubset(bloodMeasurements, schedule.doses, ka, priorBase, timeline);
-
-  const trajFit = integrateTrajectory(maxDay, schedule.doses, {
-    baseline: fit.baseline,
-    halfLife: fit.halfLife,
+  const fit = fitMAPSubset(
+    bloodMeasurements,
+    schedule.doses,
     ka,
-    factorScale: fit.factorScale
-  }, timeline);
+    priorBase,
+    timelineFine,
+    timelineCoarse
+  );
+
+  const trajFit = integrateTrajectory(
+    maxDay,
+    schedule.doses,
+    { baseline: fit.baseline, halfLife: fit.halfLife, ka, factorScale: fit.factorScale },
+    timelineFine
+  );
 
   let sqErr = 0;
   let absPctErr = 0;
@@ -1095,13 +1181,25 @@ function calibrateModel() {
     let looSqErr = 0;
     for (let i = 0; i < bloodMeasurements.length; i++) {
       const subset = bloodMeasurements.filter((_, idx) => idx !== i);
-      const subFit = fitMAPSubset(subset, schedule.doses, ka, priorBase, timeline);
-      const subTraj = integrateTrajectory(maxDay, schedule.doses, {
-        baseline: subFit.baseline,
-        halfLife: subFit.halfLife,
+      const subFit = fitMAPSubset(
+        subset,
+        schedule.doses,
         ka,
-        factorScale: subFit.factorScale
-      }, timeline);
+        priorBase,
+        timelineFine,
+        timelineCoarse
+      );
+      const subTraj = integrateTrajectory(
+        maxDay,
+        schedule.doses,
+        {
+          baseline: subFit.baseline,
+          halfLife: subFit.halfLife,
+          ka,
+          factorScale: subFit.factorScale
+        },
+        timelineFine
+      );
       const heldOut = bloodMeasurements[i];
       const predOut = interpolateTrajectoryAtDay(subTraj, heldOut.week * 7);
       looSqErr += Math.pow(predOut - heldOut.level, 2);
@@ -1110,14 +1208,14 @@ function calibrateModel() {
     looText = `${looRmse.toFixed(2)} ng/mL`;
   }
 
-  document.getElementById("inputBaseline").value = fit.baseline.toFixed(1);
-  document.getElementById("inputHalfLife").value = fit.halfLife.toFixed(1);
-  document.getElementById("inputFactorOverride").value = fit.factorScale.toFixed(3);
+  $id("inputBaseline").value = fit.baseline.toFixed(1);
+  $id("inputHalfLife").value = fit.halfLife.toFixed(1);
+  $id("inputFactorOverride").value = fit.factorScale.toFixed(3);
   updateIndicators();
 
-  const w = parseFloat(document.getElementById("inputWeight").value) || 0;
-  const h = parseFloat(document.getElementById("inputHeight").value) || 0;
-  const rawF = document.getElementById("inputFat").value;
+  const w = parseFloat($id("inputWeight").value) || 0;
+  const h = parseFloat($id("inputHeight").value) || 0;
+  const rawF = $id("inputFat").value;
   const refVols = computeAllometricVolumes(w, resolveEffectiveFatPercent(w, h, rawF).fat);
 
   out.innerHTML = `
@@ -1138,18 +1236,21 @@ function calibrateModel() {
 
 function captureCurrentState() {
   const numVal = (id, fallback = 0) => {
-    const v = parseFloat(document.getElementById(id).value);
+    const v = parseFloat($id(id).value);
     return isNaN(v) ? fallback : v;
   };
-  const rawFat = document.getElementById("inputFat").value;
+  const rawFat = $id("inputFat").value;
 
   return {
-    theme: currentTheme,
+    theme: currentThemeMode,
     mode: currentMode,
     inputs: {
       weight: numVal("inputWeight", 0),
       height: numVal("inputHeight", 0),
-      fat: rawFat !== "" && !isNaN(parseFloat(rawFat)) && parseFloat(rawFat) > 0 ? parseFloat(rawFat) : "",
+      fat:
+        rawFat !== "" && !isNaN(parseFloat(rawFat)) && parseFloat(rawFat) > 0
+          ? parseFloat(rawFat)
+          : "",
       horizon: numVal("inputHorizon", 0),
       baseline: numVal("inputBaseline", 0),
       halfLife: numVal("inputHalfLife", 25),
@@ -1157,14 +1258,14 @@ function captureCurrentState() {
       factorOverride: numVal("inputFactorOverride", 1.0),
       repIU: numVal("repIU", 0),
       repInterval: numVal("repInterval", 0),
-      repCount: parseInt(document.getElementById("repCount").value, 10) || 0,
+      repCount: parseInt($id("repCount").value, 10) || 0,
       repStartWeek: numVal("repStartWeek", 0)
     },
-    bodyProfile: JSON.parse(JSON.stringify(bodyProfile)),
-    hydroferolDoses: JSON.parse(JSON.stringify(hydroferolDoses)),
-    customDoses: JSON.parse(JSON.stringify(customDoses)),
-    dailyPhases: JSON.parse(JSON.stringify(dailyPhases)),
-    bloodMeasurements: JSON.parse(JSON.stringify(bloodMeasurements))
+    bodyProfile: cloneList(bodyProfile),
+    hydroferolDoses: cloneList(hydroferolDoses),
+    customDoses: cloneList(customDoses),
+    dailyPhases: cloneList(dailyPhases),
+    bloodMeasurements: cloneList(bloodMeasurements)
   };
 }
 
@@ -1179,28 +1280,31 @@ function applyState(stateObj) {
 
   try {
     const inp = stateObj.inputs;
-    document.getElementById("inputWeight").value = formatOptionalZeroInput(inp.weight);
-    document.getElementById("inputHeight").value = formatOptionalZeroInput(inp.height);
-    document.getElementById("inputFat").value =
-      inp.fat !== undefined && inp.fat !== null && inp.fat !== "" && Number(inp.fat) > 0 ? inp.fat : "";
-    document.getElementById("inputHorizon").value = formatOptionalZeroInput(inp.horizon);
-    document.getElementById("inputBaseline").value = formatOptionalZeroInput(inp.baseline);
-    document.getElementById("inputHalfLife").value = inp.halfLife ?? 25;
-    document.getElementById("inputKa").value = inp.ka ?? 0.28;
-    document.getElementById("inputFactorOverride").value = inp.factorOverride ?? 1.0;
+    $id("inputWeight").value = formatOptionalZeroInput(inp.weight);
+    $id("inputHeight").value = formatOptionalZeroInput(inp.height);
+    $id("inputFat").value =
+      inp.fat !== undefined && inp.fat !== null && inp.fat !== "" && Number(inp.fat) > 0
+        ? inp.fat
+        : "";
+    $id("inputHorizon").value = formatOptionalZeroInput(inp.horizon);
+    $id("inputBaseline").value = formatOptionalZeroInput(inp.baseline);
+    $id("inputHalfLife").value = inp.halfLife ?? 25;
+    $id("inputKa").value = inp.ka ?? 0.28;
+    $id("inputFactorOverride").value = inp.factorOverride ?? 1.0;
 
-    document.getElementById("repIU").value = formatOptionalZeroInput(inp.repIU);
-    document.getElementById("repInterval").value = formatOptionalZeroInput(inp.repInterval);
-    document.getElementById("repCount").value = formatOptionalZeroInput(inp.repCount);
-    document.getElementById("repStartWeek").value = formatOptionalZeroInput(inp.repStartWeek);
+    $id("repIU").value = formatOptionalZeroInput(inp.repIU);
+    $id("repInterval").value = formatOptionalZeroInput(inp.repInterval);
+    $id("repCount").value = formatOptionalZeroInput(inp.repCount);
+    $id("repStartWeek").value = formatOptionalZeroInput(inp.repStartWeek);
 
-    bodyProfile = Array.isArray(stateObj.bodyProfile) ? JSON.parse(JSON.stringify(stateObj.bodyProfile)) : [];
-    hydroferolDoses = Array.isArray(stateObj.hydroferolDoses) ? JSON.parse(JSON.stringify(stateObj.hydroferolDoses)) : [];
-    customDoses = Array.isArray(stateObj.customDoses) ? JSON.parse(JSON.stringify(stateObj.customDoses)) : [];
-    dailyPhases = Array.isArray(stateObj.dailyPhases) ? JSON.parse(JSON.stringify(stateObj.dailyPhases)) : [];
-    bloodMeasurements = Array.isArray(stateObj.bloodMeasurements) ? JSON.parse(JSON.stringify(stateObj.bloodMeasurements)) : [];
+    bodyProfile = cloneList(stateObj.bodyProfile);
+    hydroferolDoses = cloneList(stateObj.hydroferolDoses);
+    customDoses = cloneList(stateObj.customDoses);
+    dailyPhases = cloneList(stateObj.dailyPhases);
+    bloodMeasurements = cloneList(stateObj.bloodMeasurements);
 
-    if (stateObj.theme) setTheme(stateObj.theme);
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || stateObj.theme || "auto";
+    setAppTheme(savedTheme);
     setMode(stateObj.mode || "simulation");
 
     updateIndicators();
@@ -1216,6 +1320,12 @@ function applyState(stateObj) {
   calculate();
 }
 
+function scheduleAutoSave() {
+  if (isRestoringState) return;
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(autoSaveCurrentState, 220);
+}
+
 function autoSaveCurrentState() {
   if (isRestoringState) return;
   try {
@@ -1225,14 +1335,17 @@ function autoSaveCurrentState() {
     const active = getActiveProfile();
     if (active) {
       active.state = snapshot;
-      active.savedSimulations = JSON.parse(JSON.stringify(savedSimulations));
+      active.savedSimulations = savedSimulations.map((s) => ({
+        ...s,
+        curve: cloneList(s.curve)
+      }));
       active.weight = snapshot.inputs.weight;
       active.height = snapshot.inputs.height;
       active.fat = snapshot.inputs.fat === "" ? null : Number(snapshot.inputs.fat);
       saveProfilesStore();
     }
 
-    const badge = document.getElementById("autosaveBadge");
+    const badge = $id("autosaveBadge");
     if (badge) {
       const now = new Date();
       const hh = String(now.getHours()).padStart(2, "0");
@@ -1269,7 +1382,10 @@ function persistSavedSimulations() {
     localStorage.setItem(STORAGE_KEY_MEMORIES, JSON.stringify(savedSimulations));
     const active = getActiveProfile();
     if (active) {
-      active.savedSimulations = JSON.parse(JSON.stringify(savedSimulations));
+      active.savedSimulations = savedSimulations.map((s) => ({
+        ...s,
+        curve: cloneList(s.curve)
+      }));
       saveProfilesStore();
     }
   } catch (err) {
@@ -1278,7 +1394,7 @@ function persistSavedSimulations() {
 }
 
 function saveSimulationMemory() {
-  const nameInput = document.getElementById("memoryName");
+  const nameInput = $id("memoryName");
   const rawName = nameInput ? nameInput.value.trim() : "";
   const defaultName = `Simulación #${savedSimulations.length + 1}`;
   const name = rawName || defaultName;
@@ -1286,7 +1402,8 @@ function saveSimulationMemory() {
   if (!lastResult) calculate();
 
   const peak = lastResult && lastResult.levels.length ? Math.max(...lastResult.levels) : 0;
-  const finalVal = lastResult && lastResult.levels.length ? lastResult.levels[lastResult.levels.length - 1] : 0;
+  const finalVal =
+    lastResult && lastResult.levels.length ? lastResult.levels[lastResult.levels.length - 1] : 0;
   const curve = lastResult
     ? lastResult.weeks.map((w, idx) => ({ x: w, y: lastResult.levels[idx] }))
     : [];
@@ -1342,7 +1459,7 @@ function deleteSimulationMemory(id) {
 }
 
 function renderSavedSimulations() {
-  const container = document.getElementById("savedMemoriesList");
+  const container = $id("savedMemoriesList");
   if (!container) return;
 
   if (savedSimulations.length === 0) {
@@ -1353,11 +1470,12 @@ function renderSavedSimulations() {
   container.innerHTML = savedSimulations
     .map((m) => {
       const isComparing = comparedMemoryIds.has(m.id);
+      const safeName = escapeHTML(m.name);
       return `
       <div class="memory-item ${isComparing ? "comparing" : ""}">
         <div class="memory-info">
-          <div class="memory-title" title="${m.name}">${m.name}</div>
-          <div class="memory-meta">${m.savedAt} &bull; Pico ${m.summary.peak} &bull; Fin ${m.summary.final} ng/mL</div>
+          <div class="memory-title" title="${safeName}">${safeName}</div>
+          <div class="memory-meta">${escapeHTML(m.savedAt)} &bull; Pico ${m.summary.peak} &bull; Fin ${m.summary.final} ng/mL</div>
         </div>
         <div class="memory-actions">
           <button type="button" class="btn-mini" onclick="loadSimulationMemory('${m.id}')" title="Cargar parámetros">Cargar</button>
@@ -1371,7 +1489,7 @@ function renderSavedSimulations() {
 
 async function exportMemoriesJSON() {
   const payload = {
-    app: "Vitamina D Simulator V7.0 PopPK + Perfiles",
+    app: "Vitamina D Simulator V7.1 PopPK + Perfiles",
     exportedAt: new Date().toISOString(),
     activeProfileId: profilesStore.activeProfileId,
     profiles: profilesStore.profiles,
@@ -1383,7 +1501,6 @@ async function exportMemoriesJSON() {
   const fileName = `vitd_simulator_v7_perfiles_${new Date().toISOString().slice(0, 10)}.json`;
   const isAndroid = /Android/i.test(navigator.userAgent || "");
 
-  // 1. En Android WebView: hoja nativa de compartir/guardar archivo .json (Archivos, Drive, Quick Share, etc.)
   if (isAndroid && typeof navigator !== "undefined" && typeof navigator.share === "function") {
     try {
       const file = new File([jsonStr], fileName, { type: "application/json" });
@@ -1400,7 +1517,6 @@ async function exportMemoriesJSON() {
     }
   }
 
-  // 2. Descarga estándar vía Blob (PC / Desktop)
   try {
     const blob = new Blob([jsonStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -1412,20 +1528,17 @@ async function exportMemoriesJSON() {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1500);
     if (!isAndroid) return;
-  } catch (e) {
-    // Continuar a respaldo por portapapeles
-  }
+  } catch (_) {}
 
-  // 3. Respaldo universal si el WebView móvil bloquea blob: copiar JSON al portapapeles
   try {
     if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
       await navigator.clipboard.writeText(jsonStr);
-      alert(`El navegador móvil bloqueó la descarga directa, pero el respaldo JSON (${fileName}) se copió al portapapeles. Pégalo en un archivo .json para importarlo en tu PC.`);
+      alert(
+        `El navegador móvil bloqueó la descarga directa, pero el respaldo JSON (${fileName}) se copió al portapapeles.`
+      );
       return;
     }
-  } catch (clipErr) {
-    // Continuar a copia manual
-  }
+  } catch (_) {}
 
   window.prompt(`Copia este respaldo JSON (${fileName}):`, jsonStr);
 }
@@ -1448,7 +1561,10 @@ function importMemoriesJSON(event) {
         });
         saveProfilesStore();
         renderProfileSelectors();
-        if (parsed.activeProfileId && profilesStore.profiles.some((p) => p.id === parsed.activeProfileId)) {
+        if (
+          parsed.activeProfileId &&
+          profilesStore.profiles.some((p) => p.id === parsed.activeProfileId)
+        ) {
           switchProfile(parsed.activeProfileId);
         }
         return;
@@ -1467,7 +1583,7 @@ function importMemoriesJSON(event) {
       if (parsed.activeState) {
         applyState(parsed.activeState);
       }
-    } catch (err) {
+    } catch (_) {
       alert("El archivo JSON seleccionado no tiene un formato válido del simulador.");
     } finally {
       event.target.value = "";
@@ -1480,8 +1596,8 @@ function resetDefaultState() {
   localStorage.removeItem(STORAGE_KEY_AUTOSAVE);
   comparedMemoryIds.clear();
 
-  const hydroPreset = document.getElementById("hydroPreset");
-  const hydroMg = document.getElementById("hydroMg");
+  const hydroPreset = $id("hydroPreset");
+  const hydroMg = $id("hydroMg");
   if (hydroPreset) hydroPreset.value = "0";
   if (hydroMg) hydroMg.value = "";
 
@@ -1492,7 +1608,7 @@ function resetDefaultState() {
   const resolvedFat = resolveEffectiveFatPercent(baseWeight, baseHeight, baseFat).fat;
 
   applyState({
-    theme: currentTheme,
+    theme: currentThemeMode,
     mode: "simulation",
     inputs: {
       weight: baseWeight,
@@ -1536,7 +1652,7 @@ function saveProfilesStore() {
 function buildEmptyProfileState(weight = 0, height = 0, fat = null) {
   const effFat = resolveEffectiveFatPercent(weight, height, fat).fat;
   return {
-    theme: currentTheme,
+    theme: currentThemeMode,
     mode: "simulation",
     inputs: {
       weight: weight || 0,
@@ -1595,10 +1711,8 @@ function initProfilesStore() {
       targetLevel: "",
       weeks: ""
     },
-    state: hadAuto
-      ? initialSnapshot
-      : buildEmptyProfileState(0, 0, null),
-    savedSimulations: JSON.parse(JSON.stringify(savedSimulations))
+    state: hadAuto ? initialSnapshot : buildEmptyProfileState(0, 0, null),
+    savedSimulations: cloneList(savedSimulations)
   };
 
   profilesStore = {
@@ -1612,12 +1726,12 @@ function initProfilesStore() {
 }
 
 function renderProfileSelectors() {
-  const headerSel = document.getElementById("activeProfileSelect");
-  const modalSel = document.getElementById("profileModalSelect");
+  const headerSel = $id("activeProfileSelect");
+  const modalSel = $id("profileModalSelect");
   const optionsHtml = profilesStore.profiles
     .map((p) => {
       const wLabel = p.weight > 0 ? ` (${p.weight} kg)` : "";
-      return `<option value="${p.id}" ${p.id === profilesStore.activeProfileId ? "selected" : ""}>${p.name}${wLabel}</option>`;
+      return `<option value="${escapeHTML(p.id)}" ${p.id === profilesStore.activeProfileId ? "selected" : ""}>${escapeHTML(p.name)}${wLabel}</option>`;
     })
     .join("");
 
@@ -1628,12 +1742,13 @@ function renderProfileSelectors() {
 
 function getCurrentEstimatedBloodStatus() {
   const active = getActiveProfile();
-  const baseline = parseFloat(document.getElementById("inputBaseline").value) || 0;
+  const baseline = parseFloat($id("inputBaseline").value) || 0;
 
   if (lastResult && Array.isArray(lastResult.levels) && lastResult.levels.length > 0) {
     const finalLevel = lastResult.levels[lastResult.levels.length - 1];
     const finalWeek = lastResult.weeks[lastResult.weeks.length - 1];
-    const hasDoses = lastResult.schedule && lastResult.schedule.doses && lastResult.schedule.doses.length > 0;
+    const hasDoses =
+      lastResult.schedule && lastResult.schedule.doses && lastResult.schedule.doses.length > 0;
     if (hasDoses) {
       return {
         level: finalLevel,
@@ -1680,7 +1795,7 @@ function getVitaminDClinicalClassification(ngMl) {
 }
 
 function updateHeaderProfilePill() {
-  const pill = document.getElementById("headerProfileSummary");
+  const pill = $id("headerProfileSummary");
   if (!pill) return;
   const active = getActiveProfile();
   if (!active) {
@@ -1700,7 +1815,7 @@ function switchProfile(profileId, skipSavePrevious = false) {
     const prev = getActiveProfile();
     if (prev) {
       prev.state = captureCurrentState();
-      prev.savedSimulations = JSON.parse(JSON.stringify(savedSimulations));
+      prev.savedSimulations = cloneList(savedSimulations);
     }
   }
 
@@ -1727,10 +1842,10 @@ function switchProfile(profileId, skipSavePrevious = false) {
 }
 
 function createNewProfile() {
-  const nameEl = document.getElementById("newProfileName");
-  const heightEl = document.getElementById("newProfileHeight");
-  const weightEl = document.getElementById("newProfileWeight");
-  const fatEl = document.getElementById("newProfileFat");
+  const nameEl = $id("newProfileName");
+  const heightEl = $id("newProfileHeight");
+  const weightEl = $id("newProfileWeight");
+  const fatEl = $id("newProfileFat");
 
   const name = (nameEl.value || "").trim();
   if (!name) {
@@ -1781,7 +1896,7 @@ function deleteActiveProfile() {
 }
 
 function openProfileManager(initialTab = "body") {
-  const modal = document.getElementById("profileManagerModal");
+  const modal = $id("profileManagerModal");
   if (!modal) return;
   modal.classList.remove("hidden");
   populateProfileModalFields();
@@ -1789,7 +1904,7 @@ function openProfileManager(initialTab = "body") {
 }
 
 function closeProfileManager() {
-  const modal = document.getElementById("profileManagerModal");
+  const modal = $id("profileManagerModal");
   if (modal) modal.classList.add("hidden");
 }
 
@@ -1802,8 +1917,9 @@ function handleModalBackdropClick(event) {
 function switchProfileTab(tabName) {
   const tabs = ["body", "tracking", "planner"];
   tabs.forEach((t) => {
-    const btn = document.getElementById("tabBtnProfile" + t.charAt(0).toUpperCase() + t.slice(1));
-    const pane = document.getElementById("tabPaneProfile" + t.charAt(0).toUpperCase() + t.slice(1));
+    const cap = t.charAt(0).toUpperCase() + t.slice(1);
+    const btn = $id("tabBtnProfile" + cap);
+    const pane = $id("tabPaneProfile" + cap);
     if (btn) btn.classList.toggle("active", t === tabName);
     if (pane) pane.classList.toggle("hidden", t !== tabName);
   });
@@ -1815,22 +1931,28 @@ function switchProfileTab(tabName) {
   } else if (tabName === "planner") {
     const active = getActiveProfile();
     if (active && active.targetPlan) {
-      document.getElementById("plannerInitialLevel").value =
-        active.targetPlan.initialLevel !== "" && active.targetPlan.initialLevel !== null ? active.targetPlan.initialLevel : "";
-      document.getElementById("plannerTargetLevel").value =
-        active.targetPlan.targetLevel !== "" && active.targetPlan.targetLevel !== null ? active.targetPlan.targetLevel : "";
-      document.getElementById("plannerWeeks").value =
-        active.targetPlan.weeks !== "" && active.targetPlan.weeks !== null ? active.targetPlan.weeks : "";
+      $id("plannerInitialLevel").value =
+        active.targetPlan.initialLevel !== "" && active.targetPlan.initialLevel !== null
+          ? active.targetPlan.initialLevel
+          : "";
+      $id("plannerTargetLevel").value =
+        active.targetPlan.targetLevel !== "" && active.targetPlan.targetLevel !== null
+          ? active.targetPlan.targetLevel
+          : "";
+      $id("plannerWeeks").value =
+        active.targetPlan.weeks !== "" && active.targetPlan.weeks !== null
+          ? active.targetPlan.weeks
+          : "";
     }
     const hasPlannerValues =
-      document.getElementById("plannerInitialLevel").value !== "" &&
-      document.getElementById("plannerTargetLevel").value !== "" &&
-      document.getElementById("plannerWeeks").value !== "";
+      $id("plannerInitialLevel").value !== "" &&
+      $id("plannerTargetLevel").value !== "" &&
+      $id("plannerWeeks").value !== "";
     if (hasPlannerValues) {
       generateTargetPlans();
     } else {
-      document.getElementById("plannerAlertsContainer").innerHTML = "";
-      document.getElementById("plannerCardsContainer").innerHTML = "";
+      $id("plannerAlertsContainer").innerHTML = "";
+      $id("plannerCardsContainer").innerHTML = "";
     }
   }
 }
@@ -1839,20 +1961,21 @@ function populateProfileModalFields() {
   const active = getActiveProfile();
   if (!active) return;
 
-  document.getElementById("editProfileName").value = active.name || "";
-  document.getElementById("editProfileHeight").value = active.height > 0 ? active.height : "";
-  document.getElementById("editProfileWeight").value = active.weight > 0 ? active.weight : "";
-  document.getElementById("editProfileFat").value =
+  $id("editProfileName").value = active.name || "";
+  $id("editProfileHeight").value = active.height > 0 ? active.height : "";
+  $id("editProfileWeight").value = active.weight > 0 ? active.weight : "";
+  $id("editProfileFat").value =
     active.fat !== null && active.fat !== undefined && active.fat > 0 ? active.fat : "";
 
   const resolvedFat = resolveEffectiveFatPercent(active.weight, active.height, active.fat);
   const bmi = calculateBMI(active.weight, active.height);
   const vols = computeAllometricVolumes(active.weight, resolvedFat.fat);
 
-  const noteEl = document.getElementById("editProfileFatNote");
+  const noteEl = $id("editProfileFatNote");
   if (noteEl) {
     if (active.weight <= 0) {
-      noteEl.innerText = "Ingresa peso y altura para calcular IMC, masa magra/grasa y volumen de distribución.";
+      noteEl.innerText =
+        "Ingresa peso y altura para calcular IMC, masa magra/grasa y volumen de distribución.";
     } else if (resolvedFat.isEstimated) {
       noteEl.innerText = `Porcentaje de grasa opcional vacío: se utiliza estimación automática de ${resolvedFat.fat.toFixed(1)}%.`;
     } else {
@@ -1860,7 +1983,7 @@ function populateProfileModalFields() {
     }
   }
 
-  const summaryEl = document.getElementById("profileCompSummary");
+  const summaryEl = $id("profileCompSummary");
   if (summaryEl) {
     summaryEl.innerHTML = `
       <div class="comp-stat"><span>IMC Actual</span><strong>${bmi > 0 ? bmi.toFixed(1) + " (" + getBMICategory(bmi) + ")" : "--"}</strong></div>
@@ -1877,10 +2000,10 @@ function saveActiveProfileDetails() {
   const active = getActiveProfile();
   if (!active) return;
 
-  const newName = (document.getElementById("editProfileName").value || "").trim();
-  const newHeight = parseFloat(document.getElementById("editProfileHeight").value) || 0;
-  const newWeight = parseFloat(document.getElementById("editProfileWeight").value) || 0;
-  const rawFat = parseFloat(document.getElementById("editProfileFat").value);
+  const newName = ($id("editProfileName").value || "").trim();
+  const newHeight = parseFloat($id("editProfileHeight").value) || 0;
+  const newWeight = parseFloat($id("editProfileWeight").value) || 0;
+  const rawFat = parseFloat($id("editProfileFat").value);
   const newFat = !isNaN(rawFat) && rawFat > 0 ? Math.min(75, rawFat) : null;
 
   if (newName) active.name = newName;
@@ -1888,9 +2011,9 @@ function saveActiveProfileDetails() {
   active.weight = newWeight;
   active.fat = newFat;
 
-  document.getElementById("inputWeight").value = newWeight > 0 ? newWeight : "";
-  document.getElementById("inputHeight").value = newHeight > 0 ? newHeight : "";
-  document.getElementById("inputFat").value = newFat !== null ? newFat : "";
+  $id("inputWeight").value = newWeight > 0 ? newWeight : "";
+  $id("inputHeight").value = newHeight > 0 ? newHeight : "";
+  $id("inputFat").value = newFat !== null ? newFat : "";
 
   syncInitialBodyPoint();
   updateIndicators();
@@ -1903,9 +2026,9 @@ function addProfileBodyModification() {
   const active = getActiveProfile();
   if (!active) return;
 
-  const week = parseFloat(document.getElementById("profChangeWeek").value);
-  const weight = parseFloat(document.getElementById("profChangeWeight").value);
-  const rawFat = document.getElementById("profChangeFat").value;
+  const week = parseFloat($id("profChangeWeek").value);
+  const weight = parseFloat($id("profChangeWeight").value);
+  const rawFat = $id("profChangeFat").value;
 
   if (isNaN(week) || week < 0 || isNaN(weight) || weight <= 0) {
     alert("Ingresa una semana (>= 0) y un peso válido en kg.");
@@ -1928,13 +2051,13 @@ function addProfileBodyModification() {
   }
 
   if (week === 0) {
-    document.getElementById("inputWeight").value = weight;
-    document.getElementById("inputFat").value = active.fat !== null ? active.fat : "";
+    $id("inputWeight").value = weight;
+    $id("inputFat").value = active.fat !== null ? active.fat : "";
   }
 
-  document.getElementById("profChangeWeek").value = "";
-  document.getElementById("profChangeWeight").value = "";
-  document.getElementById("profChangeFat").value = "";
+  $id("profChangeWeek").value = "";
+  $id("profChangeWeight").value = "";
+  $id("profChangeFat").value = "";
 
   renderBodyProfile();
   updateIndicators();
@@ -1951,7 +2074,7 @@ function removeProfileBodyModification(index) {
 }
 
 function renderProfileBodyHistoryTable() {
-  const tbody = document.getElementById("profileBodyHistoryList");
+  const tbody = $id("profileBodyHistoryList");
   if (!tbody) return;
 
   if (!bodyProfile || bodyProfile.length === 0) {
@@ -1983,12 +2106,12 @@ function renderProfileTracking() {
   const est = getCurrentEstimatedBloodStatus();
   const cls = getVitaminDClinicalClassification(est.level);
 
-  const bigEl = document.getElementById("trackingCurrentLevel");
-  const badgeEl = document.getElementById("trackingClinicalBadge");
-  const srcEl = document.getElementById("trackingCurrentSource");
-  const recBox = document.getElementById("trackingRecommendationsBox");
+  const bigEl = $id("trackingCurrentLevel");
+  const badgeEl = $id("trackingClinicalBadge");
+  const srcEl = $id("trackingCurrentSource");
+  const recBox = $id("trackingRecommendationsBox");
 
-  const profileName = active ? active.name : "Perfil";
+  const profileName = active ? escapeHTML(active.name) : "Perfil";
   const currentLevelNum = est.level !== null ? est.level : 20;
 
   if (bigEl) {
@@ -1998,14 +2121,10 @@ function renderProfileTracking() {
       bigEl.innerHTML = `${profileName}, aún no hay nivel basal ni analítica registrada (<span>-- ng/mL</span>)`;
     }
   }
-  if (badgeEl) {
-    badgeEl.innerText = cls.label;
-  }
-  if (srcEl) {
-    srcEl.innerText = est.source;
-  }
+  if (badgeEl) badgeEl.innerText = cls.label;
+  if (srcEl) srcEl.innerText = est.source;
 
-  const rawDesired = parseFloat(document.getElementById("trackingDesiredTarget").value);
+  const rawDesired = parseFloat($id("trackingDesiredTarget").value);
   const desiredTarget = !isNaN(rawDesired) && rawDesired > 0 ? rawDesired : 50;
   const delta = desiredTarget - currentLevelNum;
 
@@ -2013,14 +2132,14 @@ function renderProfileTracking() {
   const height = active && active.height > 0 ? active.height : 170;
   const effFat = resolveEffectiveFatPercent(weight, height, active ? active.fat : null).fat;
   const vols = computeAllometricVolumes(weight, effFat);
-  const factorScale = parseFloat(document.getElementById("inputFactorOverride").value) || 1.0;
+  const factorScale = parseFloat($id("inputFactorOverride").value) || 1.0;
   const effVolD3 = vols.vRelD3 * factorScale;
 
-  const maintDailyIU = Math.round(((desiredTarget - 12) / 14.8) * 1000 * effVolD3 / 100) * 100;
+  const maintDailyIU =
+    Math.round((((desiredTarget - 12) / 14.8) * 1000 * effVolD3) / 100) * 100;
   const safeMaint = Math.max(800, Math.min(5000, maintDailyIU || 2000));
-  const repletion12w = delta > 0
-    ? Math.round((safeMaint + (delta * effVolD3 * 95)) / 200) * 200
-    : safeMaint;
+  const repletion12w =
+    delta > 0 ? Math.round((safeMaint + delta * effVolD3 * 95) / 200) * 200 : safeMaint;
 
   const cards = [];
 
@@ -2055,9 +2174,10 @@ function renderProfileTracking() {
 
   cards.push({
     title: "Impacto de Composición Corporal (FFM / FM)",
-    body: active && active.weight > 0
-      ? `Masa libre de grasa estimada: <b>${vols.ffm.toFixed(1)} kg</b> y masa grasa: <b>${vols.fm.toFixed(1)} kg</b> (${effFat.toFixed(1)}%). El colecalciferol (D₃) se secuestra más en tejido adiposo (x${vols.vRelD3.toFixed(2)}) que el Hidroferol/calcifediol (x${vols.vRel25D.toFixed(2)}).`
-      : `Ingresa peso y altura en la pestaña de datos corporales para personalizar el volumen de distribución (FFM/FM) del perfil.`
+    body:
+      active && active.weight > 0
+        ? `Masa libre de grasa estimada: <b>${vols.ffm.toFixed(1)} kg</b> y masa grasa: <b>${vols.fm.toFixed(1)} kg</b> (${effFat.toFixed(1)}%). El colecalciferol (D₃) se secuestra más en tejido adiposo (x${vols.vRelD3.toFixed(2)}) que el Hidroferol/calcifediol (x${vols.vRel25D.toFixed(2)}).`
+        : `Ingresa peso y altura en la pestaña de datos corporales para personalizar el volumen de distribución (FFM/FM) del perfil.`
   });
 
   if (recBox) {
@@ -2075,13 +2195,13 @@ function renderProfileTracking() {
 
 function sendTrackingTargetToPlanner() {
   const est = getCurrentEstimatedBloodStatus();
-  const rawDesired = parseFloat(document.getElementById("trackingDesiredTarget").value);
+  const rawDesired = parseFloat($id("trackingDesiredTarget").value);
   const desiredTarget = !isNaN(rawDesired) && rawDesired > 0 ? rawDesired : 50;
 
   if (est.level !== null) {
-    document.getElementById("plannerInitialLevel").value = est.level.toFixed(1);
+    $id("plannerInitialLevel").value = est.level.toFixed(1);
   }
-  document.getElementById("plannerTargetLevel").value = desiredTarget;
+  $id("plannerTargetLevel").value = desiredTarget;
   switchProfileTab("planner");
 }
 
@@ -2092,10 +2212,12 @@ function sendTrackingTargetToPlanner() {
 function fillPlannerFromCurrent() {
   const est = getCurrentEstimatedBloodStatus();
   if (est.level === null) {
-    alert("Este perfil aún no tiene un nivel basal ni analítica registrada. Ingrésalo manualmente en la casilla.");
+    alert(
+      "Este perfil aún no tiene un nivel basal ni analítica registrada. Ingrésalo manualmente en la casilla."
+    );
     return;
   }
-  document.getElementById("plannerInitialLevel").value = est.level.toFixed(1);
+  $id("plannerInitialLevel").value = est.level.toFixed(1);
 }
 
 function solveDoseWithRK4(buildDosesFn, minDose, maxDose, totalDays, targetLevel, params, timeline) {
@@ -2121,7 +2243,7 @@ function solveDoseWithRK4(buildDosesFn, minDose, maxDose, totalDays, targetLevel
     };
   }
 
-  for (let iter = 0; iter < 34; iter++) {
+  for (let iter = 0; iter < 30; iter++) {
     const mid = 0.5 * (lo + hi);
     const res = evalAtEnd(mid);
     if (res.endLevel < targetLevel) {
@@ -2141,15 +2263,22 @@ function solveDoseWithRK4(buildDosesFn, minDose, maxDose, totalDays, targetLevel
 }
 
 function generateTargetPlans() {
-  const initialLevel = parseFloat(document.getElementById("plannerInitialLevel").value);
-  const targetLevel = parseFloat(document.getElementById("plannerTargetLevel").value);
-  const weeks = parseFloat(document.getElementById("plannerWeeks").value);
+  const initialLevel = parseFloat($id("plannerInitialLevel").value);
+  const targetLevel = parseFloat($id("plannerTargetLevel").value);
+  const weeks = parseFloat($id("plannerWeeks").value);
 
-  const alertsEl = document.getElementById("plannerAlertsContainer");
-  const cardsEl = document.getElementById("plannerCardsContainer");
+  const alertsEl = $id("plannerAlertsContainer");
+  const cardsEl = $id("plannerCardsContainer");
   if (!alertsEl || !cardsEl) return;
 
-  if (isNaN(initialLevel) || initialLevel < 0 || isNaN(targetLevel) || targetLevel <= 0 || isNaN(weeks) || weeks < 1) {
+  if (
+    isNaN(initialLevel) ||
+    initialLevel < 0 ||
+    isNaN(targetLevel) ||
+    targetLevel <= 0 ||
+    isNaN(weeks) ||
+    weeks < 1
+  ) {
     alertsEl.innerHTML = `<div class="alert-banner alert-warning"><strong>Datos incompletos</strong>Completa el valor inicial (ng/mL), el valor objetivo (&gt; 0 ng/mL) y el plazo en semanas (&ge; 1).</div>`;
     cardsEl.innerHTML = "";
     return;
@@ -2161,9 +2290,9 @@ function generateTargetPlans() {
     saveProfilesStore();
   }
 
-  const halfLife = parseFloat(document.getElementById("inputHalfLife").value) || 25;
-  const ka = parseFloat(document.getElementById("inputKa").value) || 0.28;
-  const factorScale = parseFloat(document.getElementById("inputFactorOverride").value) || 1.0;
+  const halfLife = parseFloat($id("inputHalfLife").value) || 25;
+  const ka = parseFloat($id("inputKa").value) || 0.28;
+  const factorScale = parseFloat($id("inputFactorOverride").value) || 1.0;
 
   const totalDays = Math.round(weeks * 7);
   const params = { baseline: initialLevel, halfLife, ka, factorScale };
@@ -2171,11 +2300,17 @@ function generateTargetPlans() {
 
   // 1) Plan D3 Diario
   const buildDaily = (dailyIU) => {
-    const arr = [];
+    const arr = new Array(totalDays);
+    const eff = computeDoseEfficiency({ type: "d3", iu: dailyIU });
     for (let d = 0; d < totalDays; d++) {
-      const item = { phase: "Plan Objetivo (D₃ Diaria)", type: "d3", week: d / 7, day: d, iu: dailyIU };
-      item.efficiency = computeDoseEfficiency(item);
-      arr.push(item);
+      arr[d] = {
+        phase: "Plan Objetivo (D₃ Diaria)",
+        type: "d3",
+        week: d / 7,
+        day: d,
+        iu: dailyIU,
+        efficiency: eff
+      };
     }
     return arr;
   };
@@ -2189,90 +2324,106 @@ function generateTargetPlans() {
   const numWeeksInt = Math.max(1, Math.floor(weeks));
   const buildWeekly = (weeklyIU) => {
     const arr = [];
+    const eff = computeDoseEfficiency({ type: "d3", iu: weeklyIU });
     for (let w = 0; w < numWeeksInt; w++) {
       const day = w * 7;
       if (day < totalDays) {
-        const item = { phase: "Dosis Repetida (D₃)", type: "d3", week: w, day, iu: weeklyIU };
-        item.efficiency = computeDoseEfficiency(item);
-        arr.push(item);
+        arr.push({
+          phase: "Dosis Repetida (D₃)",
+          type: "d3",
+          week: w,
+          day,
+          iu: weeklyIU,
+          efficiency: eff
+        });
       }
     }
     return arr;
   };
-  const solWeekly = solveDoseWithRK4(buildWeekly, 0, 700000, totalDays, targetLevel, params, timeline);
+  const solWeekly = solveDoseWithRK4(
+    buildWeekly,
+    0,
+    700000,
+    totalDays,
+    targetLevel,
+    params,
+    timeline
+  );
   const practicalWeeklyIU = Math.max(1000, Math.round(solWeekly.dose / 500) * 500);
-  const trajWeekly = integrateTrajectory(totalDays, buildWeekly(practicalWeeklyIU), params, timeline);
+  const trajWeekly = integrateTrajectory(
+    totalDays,
+    buildWeekly(practicalWeeklyIU),
+    params,
+    timeline
+  );
   const endWeekly = trajWeekly.levels[trajWeekly.levels.length - 1];
   const peakWeekly = Math.max(...trajWeekly.levels);
 
   // 3) Plan Hidroferol Quincenal (cada 14 días)
-  const buildHydroBiweekly = (mgDose) => {
+  const buildHydroInterval = (intervalDays) => (mgDose) => {
     const arr = [];
     const ug = mgDose * 1000;
-    for (let d = 0; d < totalDays; d += 14) {
-      const item = {
+    const eff = computeDoseEfficiency({ type: "calcifediol", mg: mgDose });
+    const iuEq = Math.round(ug * CALCIFEDIOL_D3_EQ_PER_UG);
+    for (let d = 0; d < totalDays; d += intervalDays) {
+      arr.push({
         phase: "Hidroferol (25-OH-D₃)",
         type: "calcifediol",
         week: d / 7,
         day: d,
         mg: mgDose,
         ug,
-        iu: Math.round(ug * CALCIFEDIOL_D3_EQ_PER_UG)
-      };
-      item.efficiency = computeDoseEfficiency(item);
-      arr.push(item);
+        iu: iuEq,
+        efficiency: eff
+      });
     }
     return arr;
   };
-  const solHydroBi = solveDoseWithRK4(buildHydroBiweekly, 0, 6.0, totalDays, targetLevel, params, timeline);
+
+  const buildHydroBiweekly = buildHydroInterval(14);
+  const solHydroBi = solveDoseWithRK4(
+    buildHydroBiweekly,
+    0,
+    6.0,
+    totalDays,
+    targetLevel,
+    params,
+    timeline
+  );
   const practicalHydroBiMg = Math.max(0.05, Number(solHydroBi.dose.toFixed(3)));
-  const trajHydroBi = integrateTrajectory(totalDays, buildHydroBiweekly(practicalHydroBiMg), params, timeline);
+  const trajHydroBi = integrateTrajectory(
+    totalDays,
+    buildHydroBiweekly(practicalHydroBiMg),
+    params,
+    timeline
+  );
   const endHydroBi = trajHydroBi.levels[trajHydroBi.levels.length - 1];
   const peakHydroBi = Math.max(...trajHydroBi.levels);
 
   // 4) Plan Hidroferol Mensual (cada 28 días)
-  const buildHydroMonthly = (mgDose) => {
-    const arr = [];
-    const ug = mgDose * 1000;
-    for (let d = 0; d < totalDays; d += 28) {
-      const item = {
-        phase: "Hidroferol (25-OH-D₃)",
-        type: "calcifediol",
-        week: d / 7,
-        day: d,
-        mg: mgDose,
-        ug,
-        iu: Math.round(ug * CALCIFEDIOL_D3_EQ_PER_UG)
-      };
-      item.efficiency = computeDoseEfficiency(item);
-      arr.push(item);
-    }
-    return arr;
-  };
-  const solHydroMo = solveDoseWithRK4(buildHydroMonthly, 0, 10.0, totalDays, targetLevel, params, timeline);
+  const buildHydroMonthly = buildHydroInterval(28);
+  const solHydroMo = solveDoseWithRK4(
+    buildHydroMonthly,
+    0,
+    10.0,
+    totalDays,
+    targetLevel,
+    params,
+    timeline
+  );
   const practicalHydroMoMg = Math.max(0.1, Number(solHydroMo.dose.toFixed(3)));
-  const trajHydroMo = integrateTrajectory(totalDays, buildHydroMonthly(practicalHydroMoMg), params, timeline);
+  const trajHydroMo = integrateTrajectory(
+    totalDays,
+    buildHydroMonthly(practicalHydroMoMg),
+    params,
+    timeline
+  );
   const endHydroMo = trajHydroMo.levels[trajHydroMo.levels.length - 1];
   const peakHydroMo = Math.max(...trajHydroMo.levels);
 
-  const evalDailyRisk = () => {
-    if (!solDaily.reachable || practicalDailyIU > 10000 || peakDaily > 100) return "danger";
-    if (practicalDailyIU > 4000 || peakDaily > 80) return "warn";
-    return "ok";
-  };
-  const evalWeeklyRisk = () => {
-    if (!solWeekly.reachable || practicalWeeklyIU > 70000 || peakWeekly > 100) return "danger";
-    if (practicalWeeklyIU > 28000 || peakWeekly > 80) return "warn";
-    return "ok";
-  };
-  const evalHydroBiRisk = () => {
-    if (!solHydroBi.reachable || practicalHydroBiMg > 0.532 || peakHydroBi > 100) return "danger";
-    if (practicalHydroBiMg > 0.266 || peakHydroBi > 80) return "warn";
-    return "ok";
-  };
-  const evalHydroMoRisk = () => {
-    if (!solHydroMo.reachable || practicalHydroMoMg > 0.798 || peakHydroMo > 100) return "danger";
-    if (practicalHydroMoMg > 0.532 || peakHydroMo > 80) return "warn";
+  const evalRisk = (reachable, dose, warnLimit, dangerLimit, peak) => {
+    if (!reachable || dose > dangerLimit || peak > 100) return "danger";
+    if (dose > warnLimit || peak > 80) return "warn";
     return "ok";
   };
 
@@ -2280,42 +2431,62 @@ function generateTargetPlans() {
     {
       id: "daily_d3",
       title: "Plan Colecalciferol (D₃) Diario",
-      risk: evalDailyRisk(),
+      risk: evalRisk(solDaily.reachable, practicalDailyIU, 4000, 10000, peakDaily),
       doseMain: `${practicalDailyIU.toLocaleString("es-CL")} UI / día`,
       sub1: `Durante ${weeks} semanas (${totalDays} tomas diarias)`,
       sub2: `Nivel esperado Sem ${weeks}: ${endDaily.toFixed(1)} ng/mL (Pico: ${peakDaily.toFixed(1)} ng/mL)`,
-      sub3: solDaily.reachable ? "Cinética hepática gradual y estable" : "Plazo insuficiente para D₃ diaria sin saturación",
+      sub3: solDaily.reachable
+        ? "Cinética hepática gradual y estable"
+        : "Plazo insuficiente para D₃ diaria sin saturación",
       applyPayload: { type: "daily_d3", dailyIU: practicalDailyIU, weeks, initialLevel }
     },
     {
       id: "weekly_d3",
       title: "Plan Colecalciferol (D₃) Semanal",
-      risk: evalWeeklyRisk(),
+      risk: evalRisk(solWeekly.reachable, practicalWeeklyIU, 28000, 70000, peakWeekly),
       doseMain: `${practicalWeeklyIU.toLocaleString("es-CL")} UI / semana`,
       sub1: `1 toma cada 7 días (${numWeeksInt} tomas en total)`,
       sub2: `Nivel esperado Sem ${weeks}: ${endWeekly.toFixed(1)} ng/mL (Pico: ${peakWeekly.toFixed(1)} ng/mL)`,
       sub3: `Equivalente a ~${Math.round(practicalWeeklyIU / 7).toLocaleString("es-CL")} UI/día promedio`,
-      applyPayload: { type: "weekly_d3", weeklyIU: practicalWeeklyIU, count: numWeeksInt, weeks, initialLevel }
+      applyPayload: {
+        type: "weekly_d3",
+        weeklyIU: practicalWeeklyIU,
+        count: numWeeksInt,
+        weeks,
+        initialLevel
+      }
     },
     {
       id: "biweekly_hydro",
       title: "Plan Hidroferol Quincenal",
-      risk: evalHydroBiRisk(),
+      risk: evalRisk(solHydroBi.reachable, practicalHydroBiMg, 0.266, 0.532, peakHydroBi),
       doseMain: `${practicalHydroBiMg.toFixed(3)} mg / 14 días`,
       sub1: `${Math.round(practicalHydroBiMg * 1000)} µg cada 2 semanas (~${(practicalHydroBiMg / 0.266).toFixed(1)} cáps. de 0.266 mg)`,
       sub2: `Nivel esperado Sem ${weeks}: ${endHydroBi.toFixed(1)} ng/mL (Pico: ${peakHydroBi.toFixed(1)} ng/mL)`,
       sub3: "Acción rápida directa (25-OH-D₃) sin paso hepático",
-      applyPayload: { type: "hydro", intervalDays: 14, mg: practicalHydroBiMg, weeks, initialLevel }
+      applyPayload: {
+        type: "hydro",
+        intervalDays: 14,
+        mg: practicalHydroBiMg,
+        weeks,
+        initialLevel
+      }
     },
     {
       id: "monthly_hydro",
       title: "Plan Hidroferol Mensual",
-      risk: evalHydroMoRisk(),
+      risk: evalRisk(solHydroMo.reachable, practicalHydroMoMg, 0.532, 0.798, peakHydroMo),
       doseMain: `${practicalHydroMoMg.toFixed(3)} mg / mes`,
       sub1: `${Math.round(practicalHydroMoMg * 1000)} µg cada 28 días (~${(practicalHydroMoMg / 0.266).toFixed(1)} cáps. de 0.266 mg)`,
       sub2: `Nivel esperado Sem ${weeks}: ${endHydroMo.toFixed(1)} ng/mL (Pico: ${peakHydroMo.toFixed(1)} ng/mL)`,
       sub3: `Total de ${Math.max(1, Math.ceil(totalDays / 28))} administraciones mensuales`,
-      applyPayload: { type: "hydro", intervalDays: 28, mg: practicalHydroMoMg, weeks, initialLevel }
+      applyPayload: {
+        type: "hydro",
+        intervalDays: 28,
+        mg: practicalHydroMoMg,
+        weeks,
+        initialLevel
+      }
     }
   ];
 
@@ -2326,9 +2497,7 @@ function generateTargetPlans() {
   const h = active && active.height > 0 ? active.height : 170;
   const effF = resolveEffectiveFatPercent(w, h, active ? active.fat : null).fat;
   const effVol = computeAllometricVolumes(w, effF).vRelD3 * factorScale;
-  const safeMinWeeks = deltaReq > 0
-    ? Math.max(2, Math.ceil((deltaReq * effVol) / 3.8))
-    : 1;
+  const safeMinWeeks = deltaReq > 0 ? Math.max(2, Math.ceil((deltaReq * effVol) / 3.8)) : 1;
 
   const isTooShortOrToxic =
     !solDaily.reachable ||
@@ -2361,7 +2530,7 @@ function generateTargetPlans() {
     alertBlocks.push(`
       <div class="alert-banner alert-danger">
         <strong>ALERTA DE TOXICIDAD Y PLAZO DEMASIADO CORTO</strong>
-        Intentar subir de <b>${initialLevel} ng/mL</b> a <b>${targetLevel} ng/mL</b> en solo <b>${weeks} semana(s)</b> exige dosis suprafisiológicas potencialmente tóxicas (superan el límite seguro de 10.000 UI/día eq. o generan picos séricos &gt; 100 ng/mL, con riesgo de intoxicación por Vitamina D).<br/>
+        Intentar subir de <b>${initialLevel} ng/mL</b> a <b>${targetLevel} ng/mL</b> en solo <b>${weeks} semana(s)</b> exige dosis suprafisiológicas potencialmente tóxicas (superan el límite seguro de 10.000 UI/día eq. o generan picos séricos &gt; 100 ng/mL).<br/>
         <b>Recomendación segura:</b> Amplía el plazo a al menos <b>${safeMinWeeks} semanas</b> para alcanzar ${targetLevel} ng/mL con dosis seguras (&le; 4.000 UI/día).
       </div>
     `);
@@ -2387,7 +2556,7 @@ function generateTargetPlans() {
       <div class="alert-banner alert-k2">
         <strong>Riesgo de Hipercalcemia — Sugerencia de Vitamina K2 (MK-7)</strong>
         Dosis altas o niveles séricos elevados de 25(OH)D incrementan la absorción intestinal de calcio y pueden elevar el riesgo de <b>hipercalcemia</b> y calcificación vascular.<br/>
-        <b>Sugerencia:</b> Considera suplementar <b>Vitamina K2 (Menaquinona-7 / MK-7: 100–200 µg/día)</b> junto con Magnesio y adecuada hidratación para activar las proteínas dependientes de vitamina K (osteocalcina y MGP) que fijan el calcio en la matriz ósea, además de monitorizar calcemia sérica.
+        <b>Sugerencia:</b> Considera suplementar <b>Vitamina K2 (Menaquinona-7 / MK-7: 100–200 µg/día)</b> junto con Magnesio y adecuada hidratación para activar osteocalcina y MGP, además de monitorizar calcemia sérica.
       </div>
     `);
   }
@@ -2398,9 +2567,17 @@ function generateTargetPlans() {
     .map((p, idx) => {
       const cardClass = p.risk === "danger" ? "plan-risk" : p.risk === "warn" ? "plan-warn" : "";
       const badgeClass =
-        p.risk === "danger" ? "plan-badge-danger" : p.risk === "warn" ? "plan-badge-warn" : "plan-badge-ok";
+        p.risk === "danger"
+          ? "plan-badge-danger"
+          : p.risk === "warn"
+            ? "plan-badge-warn"
+            : "plan-badge-ok";
       const badgeText =
-        p.risk === "danger" ? "Riesgo / Plazo corto" : p.risk === "warn" ? "Dosis alta" : "Rango seguro";
+        p.risk === "danger"
+          ? "Riesgo / Plazo corto"
+          : p.risk === "warn"
+            ? "Dosis alta"
+            : "Rango seguro";
 
       return `
       <div class="plan-card ${cardClass}">
@@ -2429,16 +2606,16 @@ function applyGeneratedPlan(planIndex) {
   if (!plan || !plan.applyPayload) return;
 
   const p = plan.applyPayload;
-  document.getElementById("inputBaseline").value = p.initialLevel;
-  document.getElementById("inputHorizon").value = p.weeks;
+  $id("inputBaseline").value = p.initialLevel;
+  $id("inputHorizon").value = p.weeks;
 
   dailyPhases = [];
   customDoses = [];
   hydroferolDoses = [];
-  document.getElementById("repIU").value = "";
-  document.getElementById("repInterval").value = "";
-  document.getElementById("repCount").value = "";
-  document.getElementById("repStartWeek").value = "";
+  $id("repIU").value = "";
+  $id("repInterval").value = "";
+  $id("repCount").value = "";
+  $id("repStartWeek").value = "";
 
   if (p.type === "daily_d3") {
     dailyPhases.push({
@@ -2449,10 +2626,10 @@ function applyGeneratedPlan(planIndex) {
     });
     setMode("daily");
   } else if (p.type === "weekly_d3") {
-    document.getElementById("repIU").value = p.weeklyIU;
-    document.getElementById("repInterval").value = 1;
-    document.getElementById("repCount").value = p.count;
-    document.getElementById("repStartWeek").value = 0;
+    $id("repIU").value = p.weeklyIU;
+    $id("repInterval").value = 1;
+    $id("repCount").value = p.count;
+    $id("repStartWeek").value = 0;
     setMode("simulation");
   } else if (p.type === "hydro") {
     const totalDays = Math.round(p.weeks * 7);
@@ -2479,7 +2656,7 @@ function applyGeneratedPlan(planIndex) {
    ========================================================================== */
 
 function renderGlobalSafetyBanner(result) {
-  const banner = document.getElementById("globalSafetyBanner");
+  const banner = $id("globalSafetyBanner");
   if (!banner) return;
 
   if (!result || !result.levels || result.levels.length === 0) {
@@ -2523,8 +2700,51 @@ function renderGlobalSafetyBanner(result) {
 }
 
 /* ==========================================================================
-   14. GRÁFICOS CLÍNICOS (CON BANDA IC 95%), ESTADÍSTICAS Y TABLA
+   14. GRÁFICOS CLÍNICOS DE ALTA PRECISIÓN (HiDPI, GRADIENTES, IC 95%)
    ========================================================================== */
+
+function getChartThemeTokens() {
+  const isDark = resolvedTheme === "dark";
+  return isDark
+    ? {
+        isDark: true,
+        textColor: "#b4b0a8",
+        mutedColor: "#7f8792",
+        gridColor: "rgba(180, 176, 168, 0.10)",
+        accent: "#4fb0ae",
+        accentFillTop: "rgba(79, 176, 174, 0.24)",
+        accentFillBottom: "rgba(79, 176, 174, 0.00)",
+        ciBorder: "rgba(79, 176, 174, 0.30)",
+        ciFill: "rgba(79, 176, 174, 0.11)",
+        measuredPoint: "#e06c75",
+        measuredBorder: "#161b22",
+        tooltipBg: "rgba(18, 22, 29, 0.95)",
+        tooltipBorder: "#323d4c",
+        tooltipTitle: "#e6e3dc",
+        tooltipBody: "#b4b0a8",
+        zoneAlpha: 0.11,
+        zoneLabelColor: "rgba(230, 227, 220, 0.42)"
+      }
+    : {
+        isDark: false,
+        textColor: "#3a4550",
+        mutedColor: "#636e79",
+        gridColor: "rgba(67, 78, 89, 0.12)",
+        accent: "#2c6e73",
+        accentFillTop: "rgba(44, 110, 115, 0.20)",
+        accentFillBottom: "rgba(44, 110, 115, 0.00)",
+        ciBorder: "rgba(44, 110, 115, 0.32)",
+        ciFill: "rgba(44, 110, 115, 0.10)",
+        measuredPoint: "#c94040",
+        measuredBorder: "#f4f2ed",
+        tooltipBg: "rgba(248, 246, 242, 0.96)",
+        tooltipBorder: "#c5beb0",
+        tooltipTitle: "#1e252d",
+        tooltipBody: "#434e59",
+        zoneAlpha: 0.09,
+        zoneLabelColor: "rgba(30, 37, 45, 0.46)"
+      };
+}
 
 const clinicalZonesPlugin = {
   id: "clinicalZones",
@@ -2532,54 +2752,101 @@ const clinicalZonesPlugin = {
     const { ctx, chartArea, scales } = chart;
     if (!chartArea || !scales.y) return;
 
+    const tokens = getChartThemeTokens();
+    const a = tokens.zoneAlpha;
+
     const zones = [
-      { min: 0, max: 20, color: "rgba(239, 68, 68, 0.12)" },
-      { min: 20, max: 30, color: "rgba(245, 158, 11, 0.13)" },
-      { min: 30, max: 60, color: "rgba(16, 185, 129, 0.15)" },
-      { min: 60, max: 100, color: "rgba(59, 130, 246, 0.12)" },
-      { min: 100, max: 250, color: "rgba(168, 85, 247, 0.12)" }
+      { min: 0, max: 20, color: `rgba(210, 75, 75, ${a})`, label: "Deficiencia (<20)" },
+      { min: 20, max: 30, color: `rgba(214, 145, 55, ${a})`, label: "Insuficiencia" },
+      { min: 30, max: 60, color: `rgba(55, 165, 125, ${a + 0.02})`, label: "Rango Óptimo (30–60)" },
+      { min: 60, max: 100, color: `rgba(75, 145, 205, ${a})`, label: "Alto" },
+      { min: 100, max: 250, color: `rgba(175, 85, 195, ${a})`, label: "Toxicidad (>100)" }
     ];
 
     ctx.save();
+    ctx.beginPath();
+    ctx.rect(
+      chartArea.left,
+      chartArea.top,
+      chartArea.right - chartArea.left,
+      chartArea.bottom - chartArea.top
+    );
+    ctx.clip();
+
     zones.forEach((z) => {
       const yTop = scales.y.getPixelForValue(Math.min(z.max, scales.y.max));
       const yBottom = scales.y.getPixelForValue(Math.max(z.min, scales.y.min));
       if (yBottom > yTop) {
         ctx.fillStyle = z.color;
         ctx.fillRect(chartArea.left, yTop, chartArea.right - chartArea.left, yBottom - yTop);
+
+        // Etiqueta sutil en el borde derecho si la banda tiene altura suficiente
+        if (yBottom - yTop >= 18) {
+          ctx.fillStyle = tokens.zoneLabelColor;
+          ctx.font = '500 10px "Inter", -apple-system, sans-serif';
+          ctx.textAlign = "right";
+          ctx.textBaseline = "top";
+          ctx.fillText(z.label, chartArea.right - 8, yTop + 4);
+        }
       }
     });
+
+    // Líneas guía discontinuas en umbrales clínicos clave (30 y 60 ng/mL)
+    [30, 60, 100].forEach((threshold) => {
+      if (threshold <= scales.y.max && threshold >= scales.y.min) {
+        const yPos = scales.y.getPixelForValue(threshold);
+        ctx.strokeStyle = tokens.zoneLabelColor;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, yPos);
+        ctx.lineTo(chartArea.right, yPos);
+        ctx.stroke();
+      }
+    });
+
     ctx.restore();
   }
 };
 
-function renderCharts(result) {
-  const styles = getComputedStyle(document.documentElement);
-  const textColor = styles.getPropertyValue("--text-main").trim();
-  const mutedColor = styles.getPropertyValue("--text-muted").trim();
-  const gridColor = styles.getPropertyValue("--grid-line").trim();
-  const accentColor = styles.getPropertyValue("--accent").trim();
+function createCurveGradient(ctx, chartArea, tokens) {
+  if (!chartArea) return tokens.accentFillTop;
+  const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+  gradient.addColorStop(0, tokens.accentFillTop);
+  gradient.addColorStop(1, tokens.accentFillBottom);
+  return gradient;
+}
 
-  const bloodCtx = document.getElementById("bloodChart").getContext("2d");
-  if (bloodChart) bloodChart.destroy();
+function renderCharts(result, instantUpdate = false) {
+  const bloodCanvas = $id("bloodChart");
+  const doseCanvas = $id("doseChart");
+  if (!bloodCanvas || !doseCanvas) return;
 
-  const curveData = result.weeks.map((w, idx) => ({ x: w, y: result.levels[idx] }));
+  const tokens = getChartThemeTokens();
+  const dpr = Math.max(window.devicePixelRatio || 1, 2);
+
+  const curveData = result.weeks.map((w, idx) => ({
+    x: w,
+    y: result.levels[idx],
+    ciLow: result.ciLow[idx],
+    ciHigh: result.ciHigh[idx]
+  }));
   const ciHighData = result.weeks.map((w, idx) => ({ x: w, y: result.ciHigh[idx] }));
   const ciLowData = result.weeks.map((w, idx) => ({ x: w, y: result.ciLow[idx] }));
   const measuredData = bloodMeasurements.map((m) => ({ x: m.week, y: m.level }));
 
-  const compareColors = ["#a855f7", "#f59e0b", "#ec4899", "#14b8a6", "#6366f1"];
+  const compareColors = ["#b57edc", "#dfa054", "#e06c9f", "#43aa8b", "#6c8ce0"];
   const comparisonDatasets = [];
   let maxComparedY = 0;
-
   let colorIdx = 0;
+
   savedSimulations.forEach((mem) => {
     if (comparedMemoryIds.has(mem.id) && Array.isArray(mem.curve) && mem.curve.length > 0) {
       const cColor = compareColors[colorIdx % compareColors.length];
       colorIdx++;
-      mem.curve.forEach((pt) => {
-        if (pt.y > maxComparedY) maxComparedY = pt.y;
-      });
+      for (let i = 0; i < mem.curve.length; i++) {
+        if (mem.curve[i].y > maxComparedY) maxComparedY = mem.curve[i].y;
+      }
       comparisonDatasets.push({
         label: `[Memoria] ${mem.name}`,
         data: mem.curve,
@@ -2589,7 +2856,7 @@ function renderCharts(result) {
         borderDash: [6, 4],
         pointRadius: 0,
         pointHoverRadius: 4,
-        tension: 0.25
+        tension: 0.28
       });
     }
   });
@@ -2601,106 +2868,155 @@ function renderCharts(result) {
     65
   );
   const yMax = Math.min(250, Math.ceil(maxCurve / 10) * 10 + 10);
-  const horizonVal = parseFloat(document.getElementById("inputHorizon").value) || 0;
+  const horizonVal = parseFloat($id("inputHorizon").value) || 0;
 
-  bloodChart = new Chart(bloodCtx, {
-    type: "line",
-    data: {
-      datasets: [
-        {
-          label: "IC 95% Superior",
-          data: ciHighData,
-          borderColor: "rgba(56, 189, 248, 0.25)",
-          backgroundColor: "rgba(56, 189, 248, 0.12)",
-          borderWidth: 1,
-          borderDash: [3, 3],
-          pointRadius: 0,
-          fill: "+1",
-          tension: 0.25
-        },
-        {
-          label: "IC 95% Inferior",
-          data: ciLowData,
-          borderColor: "rgba(56, 189, 248, 0.25)",
-          backgroundColor: "transparent",
-          borderWidth: 1,
-          borderDash: [3, 3],
-          pointRadius: 0,
-          fill: false,
-          tension: 0.25
-        },
-        {
-          label: "25(OH)D Esperada (ng/mL)",
-          data: curveData,
-          borderColor: accentColor,
-          backgroundColor: accentColor,
-          borderWidth: 2.6,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          tension: 0.25
-        },
-        ...comparisonDatasets,
-        {
-          label: "Mediciones Séricas Reales",
-          data: measuredData,
-          type: "scatter",
-          backgroundColor: "#f43f5e",
-          borderColor: "#ffffff",
-          borderWidth: 1.5,
-          pointRadius: 5.5,
-          pointHoverRadius: 7
-        }
-      ]
+  const bloodDatasets = [
+    {
+      label: "IC 95% Superior",
+      data: ciHighData,
+      borderColor: tokens.ciBorder,
+      backgroundColor: tokens.ciFill,
+      borderWidth: 1,
+      borderDash: [3, 3],
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      fill: "+1",
+      tension: 0.28
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "nearest", intersect: false },
-      plugins: {
-        legend: {
-          labels: {
-            color: textColor,
-            filter: (item) => item.text !== "IC 95% Inferior"
-          }
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              const wk = ctx.parsed.x;
-              const day = Math.round(wk * 7);
-              return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)} ng/mL (Día ${day} / Sem ${wk.toFixed(1)})`;
-            }
-          }
+    {
+      label: "IC 95% Inferior",
+      data: ciLowData,
+      borderColor: tokens.ciBorder,
+      backgroundColor: "transparent",
+      borderWidth: 1,
+      borderDash: [3, 3],
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      fill: false,
+      tension: 0.28
+    },
+    {
+      label: "25(OH)D Esperada (ng/mL)",
+      data: curveData,
+      borderColor: tokens.accent,
+      backgroundColor: (context) => {
+        const { ctx, chartArea } = context.chart;
+        return createCurveGradient(ctx, chartArea, tokens);
+      },
+      fill: "origin",
+      borderWidth: 2.8,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      pointHoverBackgroundColor: tokens.accent,
+      pointHoverBorderColor: tokens.measuredBorder,
+      pointHoverBorderWidth: 2,
+      tension: 0.28
+    },
+    ...comparisonDatasets,
+    {
+      label: "Mediciones Séricas Reales",
+      data: measuredData,
+      type: "scatter",
+      backgroundColor: tokens.measuredPoint,
+      borderColor: tokens.measuredBorder,
+      borderWidth: 2,
+      pointRadius: 5.5,
+      pointHoverRadius: 7.5
+    }
+  ];
+
+  const bloodOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    devicePixelRatio: dpr,
+    animation: instantUpdate ? false : { duration: 280, easing: "easeOutQuart" },
+    interaction: { mode: "nearest", axis: "x", intersect: false },
+    plugins: {
+      legend: {
+        labels: {
+          color: tokens.textColor,
+          usePointStyle: true,
+          boxWidth: 8,
+          font: { family: '"Inter", sans-serif', size: 11.5, weight: "500" },
+          filter: (item) => item.text !== "IC 95% Inferior"
         }
       },
-      scales: {
-        x: {
-          type: "linear",
-          min: 0,
-          ...(horizonVal <= 0 ? { max: 12 } : {}),
-          title: { display: true, text: "Tiempo (Semanas)", color: mutedColor },
-          ticks: { color: mutedColor },
-          grid: { color: gridColor }
-        },
-        y: {
-          min: 0,
-          max: yMax,
-          title: { display: true, text: "25(OH)D (ng/mL)", color: mutedColor },
-          ticks: { color: mutedColor },
-          grid: { color: gridColor }
+      tooltip: {
+        backgroundColor: tokens.tooltipBg,
+        borderColor: tokens.tooltipBorder,
+        borderWidth: 1,
+        titleColor: tokens.tooltipTitle,
+        bodyColor: tokens.tooltipBody,
+        padding: 10,
+        cornerRadius: 8,
+        displayColors: true,
+        callbacks: {
+          title: (items) => {
+            if (!items.length) return "";
+            const wk = items[0].parsed.x;
+            return `Semana ${wk.toFixed(1)} (Día ${Math.round(wk * 7)})`;
+          },
+          label: (ctx) => {
+            if (ctx.dataset.label === "IC 95% Superior" || ctx.dataset.label === "IC 95% Inferior") {
+              return null;
+            }
+            const raw = ctx.raw;
+            const ciText =
+              raw && raw.ciLow !== undefined && raw.ciHigh !== undefined
+                ? ` [IC 95%: ${raw.ciLow.toFixed(1)}–${raw.ciHigh.toFixed(1)}]`
+                : "";
+            return ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)} ng/mL${ciText}`;
+          }
         }
       }
     },
-    plugins: [clinicalZonesPlugin]
-  });
+    scales: {
+      x: {
+        type: "linear",
+        min: 0,
+        max: horizonVal > 0 ? horizonVal : 12,
+        title: {
+          display: true,
+          text: "Tiempo (Semanas)",
+          color: tokens.mutedColor,
+          font: { size: 11.5, weight: "500" }
+        },
+        ticks: { color: tokens.mutedColor, font: { size: 11 } },
+        grid: { color: tokens.gridColor }
+      },
+      y: {
+        min: 0,
+        max: yMax,
+        title: {
+          display: true,
+          text: "25(OH)D Sérico (ng/mL)",
+          color: tokens.mutedColor,
+          font: { size: 11.5, weight: "500" }
+        },
+        ticks: { color: tokens.mutedColor, font: { size: 11 } },
+        grid: { color: tokens.gridColor }
+      }
+    }
+  };
 
-  const doseCtx = document.getElementById("doseChart").getContext("2d");
-  if (doseChart) doseChart.destroy();
+  if (bloodChart) {
+    bloodChart.data.datasets = bloodDatasets;
+    bloodChart.options = bloodOptions;
+    bloodChart.update(instantUpdate ? "none" : undefined);
+  } else {
+    bloodChart = new Chart(bloodCanvas.getContext("2d"), {
+      type: "line",
+      data: { datasets: bloodDatasets },
+      options: bloodOptions,
+      plugins: [clinicalZonesPlugin]
+    });
+  }
 
+  // --- Gráfico de Dosis Administradas ---
   const phaseColors = {
-    "Dosis Repetida (D₃)": "#38bdf8",
-    "Dosis Libre (D₃)": "#f59e0b",
-    "Hidroferol (25-OH-D₃)": "#10b981"
+    "Dosis Repetida (D₃)": tokens.accent,
+    "Dosis Libre (D₃)": tokens.isDark ? "#dfa054" : "#b8742a",
+    "Hidroferol (25-OH-D₃)": tokens.isDark ? "#4ec29b" : "#2d7a5e"
   };
 
   let barItems = [];
@@ -2724,7 +3040,7 @@ function renderCharts(result) {
   }
 
   const uniquePhases = [...new Set(barItems.map((d) => d.phase))];
-  const fallbackPalette = ["#8b5cf6", "#ec4899", "#06b6d4", "#eab308"];
+  const fallbackPalette = ["#9b7ede", "#d9779b", "#4aa3ba", "#c79a44"];
 
   const doseDatasets = uniquePhases.map((phaseName, idx) => {
     const color = phaseColors[phaseName] || fallbackPalette[idx % fallbackPalette.length];
@@ -2738,63 +3054,100 @@ function renderCharts(result) {
           raw: d
         })),
       backgroundColor: color,
-      borderRadius: 4,
-      barThickness: 11
+      borderColor: color,
+      borderWidth: 1,
+      borderRadius: { topLeft: 5, topRight: 5 },
+      maxBarThickness: 18,
+      barThickness: "flex"
     };
   });
 
-  doseChart = new Chart(doseCtx, {
-    type: "bar",
-    data: { datasets: doseDatasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { labels: { color: textColor } },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              const item = ctx.raw.raw;
-              if (item && item.type === "calcifediol") {
-                return `Hidroferol: ${item.mg.toFixed(3)} mg (${Math.round(item.ug)} µg • ~${item.iu.toLocaleString("es-CL")} UI eq.) — Día ${item.day}`;
-              }
-              return `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString("es-CL")} UI (Sem ${ctx.parsed.x})`;
-            }
-          }
+  const doseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    devicePixelRatio: dpr,
+    animation: instantUpdate ? false : { duration: 240, easing: "easeOutQuart" },
+    plugins: {
+      legend: {
+        labels: {
+          color: tokens.textColor,
+          usePointStyle: true,
+          boxWidth: 8,
+          font: { family: '"Inter", sans-serif', size: 11.5, weight: "500" }
         }
       },
-      scales: {
-        x: {
-          type: "linear",
-          min: 0,
-          max: horizonVal > 0 ? horizonVal : 12,
-          title: { display: true, text: "Tiempo de administración (Semanas)", color: mutedColor },
-          ticks: { color: mutedColor, stepSize: 2 },
-          grid: { color: gridColor }
-        },
-        y: {
-          beginAtZero: true,
-          title: { display: true, text: "Magnitud (UI / Eq. UI)", color: mutedColor },
-          ticks: { color: mutedColor },
-          grid: { color: gridColor }
+      tooltip: {
+        backgroundColor: tokens.tooltipBg,
+        borderColor: tokens.tooltipBorder,
+        borderWidth: 1,
+        titleColor: tokens.tooltipTitle,
+        bodyColor: tokens.tooltipBody,
+        padding: 10,
+        cornerRadius: 8,
+        callbacks: {
+          label: (ctx) => {
+            const item = ctx.raw.raw;
+            if (item && item.type === "calcifediol") {
+              return ` Hidroferol: ${item.mg.toFixed(3)} mg (${Math.round(item.ug)} µg • ~${item.iu.toLocaleString("es-CL")} UI eq.) — Día ${item.day}`;
+            }
+            return ` ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString("es-CL")} UI (Sem ${ctx.parsed.x})`;
+          }
         }
       }
+    },
+    scales: {
+      x: {
+        type: "linear",
+        min: 0,
+        max: horizonVal > 0 ? horizonVal : 12,
+        title: {
+          display: true,
+          text: "Tiempo de administración (Semanas)",
+          color: tokens.mutedColor,
+          font: { size: 11.5, weight: "500" }
+        },
+        ticks: { color: tokens.mutedColor, stepSize: 2, font: { size: 11 } },
+        grid: { color: tokens.gridColor }
+      },
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: "Magnitud (UI / Eq. UI)",
+          color: tokens.mutedColor,
+          font: { size: 11.5, weight: "500" }
+        },
+        ticks: { color: tokens.mutedColor, font: { size: 11 } },
+        grid: { color: tokens.gridColor }
+      }
     }
-  });
+  };
+
+  if (doseChart) {
+    doseChart.data.datasets = doseDatasets;
+    doseChart.options = doseOptions;
+    doseChart.update(instantUpdate ? "none" : undefined);
+  } else {
+    doseChart = new Chart(doseCanvas.getContext("2d"), {
+      type: "bar",
+      data: { datasets: doseDatasets },
+      options: doseOptions
+    });
+  }
 }
 
 function renderStats(result) {
   if (!result.levels || result.levels.length === 0) {
-    document.getElementById("statPeak").innerText = "--";
-    document.getElementById("statPeakWeek").innerText = "Semana --";
+    $id("statPeak").innerText = "--";
+    $id("statPeakWeek").innerText = "Semana --";
 
-    document.getElementById("statFinal").innerText = "--";
-    document.getElementById("statFinalWeek").innerText = "Fin de horizonte";
+    $id("statFinal").innerText = "--";
+    $id("statFinalWeek").innerText = "Fin de horizonte";
 
-    document.getElementById("statTotalIU").innerText = "0 UI";
-    document.getElementById("statAvgDaily").innerText = "Promedio diario 0 UI/día";
+    $id("statTotalIU").innerText = "0 UI";
+    $id("statAvgDaily").innerText = "Promedio diario 0 UI/día";
 
-    document.getElementById("statWeek30").innerText = "--";
+    $id("statWeek30").innerText = "--";
     return;
   }
 
@@ -2825,21 +3178,23 @@ function renderStats(result) {
   const totalDays = Math.max(1, finalWeek * 7);
   const avgDaily = totalIU / totalDays;
 
-  document.getElementById("statPeak").innerText = `${peakVal.toFixed(1)} ng/mL`;
-  document.getElementById("statPeakWeek").innerText = `Sem ${peakWeek.toFixed(1)} [${peakLow.toFixed(0)}–${peakHigh.toFixed(0)}]`;
+  $id("statPeak").innerText = `${peakVal.toFixed(1)} ng/mL`;
+  $id("statPeakWeek").innerText =
+    `Sem ${peakWeek.toFixed(1)} [${peakLow.toFixed(0)}–${peakHigh.toFixed(0)}]`;
 
-  document.getElementById("statFinal").innerText = `${finalVal.toFixed(1)} ng/mL`;
-  document.getElementById("statFinalWeek").innerText = `Sem ${finalWeek.toFixed(0)} [${finalLow.toFixed(0)}–${finalHigh.toFixed(0)}]`;
+  $id("statFinal").innerText = `${finalVal.toFixed(1)} ng/mL`;
+  $id("statFinalWeek").innerText =
+    `Sem ${finalWeek.toFixed(0)} [${finalLow.toFixed(0)}–${finalHigh.toFixed(0)}]`;
 
-  document.getElementById("statTotalIU").innerText = `${totalIU.toLocaleString("es-CL")} UI`;
-  document.getElementById("statAvgDaily").innerText = `~${Math.round(avgDaily).toLocaleString("es-CL")} UI/día eq.`;
+  $id("statTotalIU").innerText = `${totalIU.toLocaleString("es-CL")} UI`;
+  $id("statAvgDaily").innerText = `~${Math.round(avgDaily).toLocaleString("es-CL")} UI/día eq.`;
 
-  document.getElementById("statWeek30").innerText =
+  $id("statWeek30").innerText =
     week30 !== null ? `Sem ${week30.toFixed(1)} (Día ${Math.round(week30 * 7)})` : "No alcanzada";
 }
 
 function renderScheduleTable(schedule) {
-  const tbody = document.getElementById("scheduleTableBody");
+  const tbody = $id("scheduleTableBody");
   if (!tbody) return;
 
   if (!schedule || !schedule.doses || schedule.doses.length === 0) {
@@ -2847,9 +3202,8 @@ function renderScheduleTable(schedule) {
     return;
   }
 
-  let rows = [];
-
   if (currentMode === "daily") {
+    const rows = [];
     const map = new Map();
     schedule.doses.forEach((d) => {
       if (d.type === "calcifediol") {
@@ -2858,7 +3212,7 @@ function renderScheduleTable(schedule) {
           daySort: d.day,
           phase: d.phase,
           moment: `Día ${d.day} (Sem ${d.week})`,
-          doseText: `${d.mg.toFixed(3)} mg (${Math.round(d.ug)} µg • ef. ${effPct}%)${d.note ? " — " + d.note : ""}`
+          doseText: `${d.mg.toFixed(3)} mg (${Math.round(d.ug)} µg • ef. ${effPct}%)${d.note ? " — " + escapeHTML(d.note) : ""}`
         });
       } else {
         const wk = Math.floor(d.week);
@@ -2882,7 +3236,7 @@ function renderScheduleTable(schedule) {
       .map(
         (r) => `
         <tr>
-          <td>${r.phase}</td>
+          <td>${escapeHTML(r.phase)}</td>
           <td>${r.moment}</td>
           <td>${r.doseText || r.iu.toLocaleString("es-CL") + " UI (sem)"}</td>
         </tr>`
@@ -2896,11 +3250,11 @@ function renderScheduleTable(schedule) {
       const effPct = Math.round((d.efficiency || 1) * 100);
       const doseLabel =
         d.type === "calcifediol"
-          ? `${d.mg.toFixed(3)} mg (${Math.round(d.ug)} µg • ef. ${effPct}%)${d.note ? " — " + d.note : ""}`
+          ? `${d.mg.toFixed(3)} mg (${Math.round(d.ug)} µg • ef. ${effPct}%)${d.note ? " — " + escapeHTML(d.note) : ""}`
           : `${d.iu.toLocaleString("es-CL")} UI (ef. ${effPct}%)`;
       return `
       <tr>
-        <td>${d.phase}</td>
+        <td>${escapeHTML(d.phase)}</td>
         <td>Día ${Math.round(d.day)} (Sem ${d.week})</td>
         <td>${doseLabel}</td>
       </tr>`;
@@ -2912,6 +3266,11 @@ function renderScheduleTable(schedule) {
    15. FLUJO PRINCIPAL E INICIALIZACIÓN AUTOMÁTICA
    ========================================================================== */
 
+function scheduleCalculate(delayMs = 95) {
+  clearTimeout(calcDebounceTimer);
+  calcDebounceTimer = setTimeout(calculate, delayMs);
+}
+
 function calculate() {
   const result = runSimulation();
   lastResult = result;
@@ -2921,19 +3280,25 @@ function calculate() {
   renderScheduleTable(result.schedule);
   renderGlobalSafetyBanner(result);
   updateHeaderProfilePill();
-  autoSaveCurrentState();
+  scheduleAutoSave();
 }
 
 /* ==========================================================================
    16. ACTUALIZACIÓN AUTOMÁTICA VÍA GITHUB RELEASES (PC + ANDROID)
    ========================================================================== */
 
-const APP_CURRENT_VERSION = "0.3.1";
+const APP_CURRENT_VERSION = "0.3.2";
 const GITHUB_REPO_SLUG = "JoTaC3/Vit-d-Project";
 
 function compareSemver(a, b) {
-  const pa = String(a || "").replace(/^v/i, "").split(".").map((n) => parseInt(n, 10) || 0);
-  const pb = String(b || "").replace(/^v/i, "").split(".").map((n) => parseInt(n, 10) || 0);
+  const pa = String(a || "")
+    .replace(/^v/i, "")
+    .split(".")
+    .map((n) => parseInt(n, 10) || 0);
+  const pb = String(b || "")
+    .replace(/^v/i, "")
+    .split(".")
+    .map((n) => parseInt(n, 10) || 0);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const da = pa[i] || 0;
     const db = pb[i] || 0;
@@ -2944,7 +3309,7 @@ function compareSemver(a, b) {
 }
 
 function showAppUpdateBanner({ version, notes, isDesktop, releaseUrl }) {
-  let banner = document.getElementById("appUpdateBanner");
+  let banner = $id("appUpdateBanner");
   if (!banner) {
     banner = document.createElement("div");
     banner.id = "appUpdateBanner";
@@ -2957,18 +3322,20 @@ function showAppUpdateBanner({ version, notes, isDesktop, releaseUrl }) {
     }
   }
 
-  const safeNotes = notes ? ` — ${String(notes).slice(0, 110)}` : "";
+  const safeNotes = notes ? ` — ${escapeHTML(String(notes).slice(0, 110))}` : "";
+  const safeVersion = escapeHTML(version);
+
   if (isDesktop) {
     banner.innerHTML = `
       <div>
-        <strong>Nueva versión v${version} disponible</strong>${safeNotes}
+        <strong>Nueva versión v${safeVersion} disponible</strong>${safeNotes}
       </div>
       <div class="app-update-actions">
         <button type="button" id="btnInstallDesktopUpdate" class="btn-primary">Actualizar y reiniciar</button>
         <button type="button" class="btn-secondary" onclick="document.getElementById('appUpdateBanner')?.remove()">Más tarde</button>
       </div>
     `;
-    const btn = document.getElementById("btnInstallDesktopUpdate");
+    const btn = $id("btnInstallDesktopUpdate");
     if (btn) {
       btn.onclick = async () => {
         btn.disabled = true;
@@ -2985,10 +3352,10 @@ function showAppUpdateBanner({ version, notes, isDesktop, releaseUrl }) {
   } else {
     banner.innerHTML = `
       <div>
-        <strong>Nueva versión v${version} disponible en GitHub</strong> (actual: v${APP_CURRENT_VERSION})${safeNotes}
+        <strong>Nueva versión v${safeVersion} disponible en GitHub</strong> (actual: v${APP_CURRENT_VERSION})${safeNotes}
       </div>
       <div class="app-update-actions">
-        <a href="${releaseUrl}" target="_blank" rel="noopener noreferrer" class="btn-primary" style="text-decoration:none;">Descargar APK / Abrir Obtainium</a>
+        <a href="${escapeHTML(releaseUrl)}" target="_blank" rel="noopener noreferrer" class="btn-primary" style="text-decoration:none;">Descargar APK / Abrir Obtainium</a>
         <button type="button" class="btn-secondary" onclick="document.getElementById('appUpdateBanner')?.remove()">Cerrar</button>
       </div>
     `;
@@ -3003,10 +3370,11 @@ async function checkAppUpdates() {
     window.__TAURI__.core &&
     typeof window.__TAURI__.core.invoke === "function";
 
-  // 1. Escritorio (Windows / macOS / Linux): verificador nativo firmado con tauri-plugin-updater
   if (!isAndroid && hasTauriInvoke) {
     try {
-      const info = await window.__TAURI__.core.invoke("check_and_install_update", { install: false });
+      const info = await window.__TAURI__.core.invoke("check_and_install_update", {
+        install: false
+      });
       if (info && info.available && info.version) {
         showAppUpdateBanner({
           version: info.version,
@@ -3016,12 +3384,9 @@ async function checkAppUpdates() {
         });
         return;
       }
-    } catch (_) {
-      // Sin conexión o endpoint aún sin publicar: continuar en modo offline sin molestar
-    }
+    } catch (_) {}
   }
 
-  // 2. Android (y respaldo web): consultar último Release publicado en GitHub
   if (GITHUB_REPO_SLUG && !GITHUB_REPO_SLUG.includes("TU_USUARIO")) {
     try {
       const resp = await fetch(`https://api.github.com/repos/${GITHUB_REPO_SLUG}/releases/latest`, {
@@ -3038,78 +3403,13 @@ async function checkAppUpdates() {
           releaseUrl: data.html_url || `https://github.com/${GITHUB_REPO_SLUG}/releases/latest`
         });
       }
-    } catch (_) {
-      // Modo offline: ignorar silenciosamente
-    }
+    } catch (_) {}
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "auto";
+  setAppTheme(savedTheme);
   initProfilesStore();
   setTimeout(checkAppUpdates, 2500);
-});
-
-
-
-
-// === CRONOBIOLOGIA NORDICA THEME CONTROLLER ===
-function setAppTheme(mode) {
-  const root = document.documentElement;
-  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  localStorage.setItem("app-theme-mode", mode);
-
-  ["Light", "Dark", "Auto"].forEach((label) => {
-    const btn = document.getElementById(`btnTheme${label}`);
-    if (btn) btn.classList.toggle("active", label.toLowerCase() === mode);
-  });
-
-  const applyResolvedTheme = (resolved) => {
-    root.setAttribute("data-theme", resolved);
-    if (typeof Chart !== "undefined" && Chart.instances) {
-      const textColor = resolved === "dark" ? "#8FA0B2" : "#52606D";
-      const gridColor = resolved === "dark" ? "#26303D" : "#CFD7E0";
-      const curveColor = resolved === "dark" ? "#5B9BD5" : "#255C99";
-
-      Object.values(Chart.instances).forEach((chart) => {
-        if (chart.options?.scales?.x) {
-          chart.options.scales.x.ticks.color = textColor;
-          chart.options.scales.x.grid.color = gridColor;
-        }
-        if (chart.options?.scales?.y) {
-          chart.options.scales.y.ticks.color = textColor;
-          chart.options.scales.y.grid.color = gridColor;
-        }
-        if (chart.options?.plugins?.legend?.labels) {
-          chart.options.plugins.legend.labels.color = textColor;
-        }
-        if (chart.canvas?.id === "bloodChart" && chart.data?.datasets?.[0]) {
-          chart.data.datasets[0].borderColor = curveColor;
-        }
-        chart.update("none");
-      });
-    }
-  };
-
-  if (mode === "auto") {
-    applyResolvedTheme(darkQuery.matches ? "dark" : "light");
-    darkQuery.onchange = (e) => {
-      if (localStorage.getItem("app-theme-mode") === "auto") {
-        applyResolvedTheme(e.matches ? "dark" : "light");
-      }
-    };
-  } else {
-    applyResolvedTheme(mode);
-    darkQuery.onchange = null;
-  }
-}
-
-window.setTheme = function (legacyTheme) {
-  if (legacyTheme === "clinical") return setAppTheme("light");
-  if (legacyTheme === "dark" || legacyTheme === "warm") return setAppTheme("dark");
-  return setAppTheme("auto");
-};
-
-window.addEventListener("load", () => {
-  const savedMode = localStorage.getItem("app-theme-mode") || "auto";
-  setAppTheme(savedMode);
 });

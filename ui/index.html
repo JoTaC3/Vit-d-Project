@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Vitamina D Simulator V7.0 — PopPK & Administrador de Perfiles</title>
+  <title>Vitamina D Simulator V7.1 — PopPK & Administrador de Perfiles</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="chart.umd.min.js"></script>
 </head>
@@ -11,7 +11,7 @@
   <!-- BARRA SUPERIOR -->
   <header class="topbar">
     <div class="brand">
-      <div class="brand-title">Vitamina D Simulator <span class="badge-version">V7.0 PopPK</span></div>
+      <div class="brand-title">Vitamina D Simulator <span class="badge-version">V7.1 PopPK</span></div>
       <div class="brand-subtitle">Motor Farmacocinético RK4 • Calibración MAP • Gestión de Perfiles</div>
     </div>
 
@@ -55,15 +55,15 @@
         <div class="grid-3">
           <div class="field">
             <label for="inputWeight">Peso (kg)</label>
-            <input type="number" id="inputWeight" step="0.1" min="0" placeholder="Peso en kg" onchange="onMainAnthropometryChange()" />
+            <input type="number" id="inputWeight" step="0.1" min="0" placeholder="Peso en kg" oninput="onMainAnthropometryChange()" />
           </div>
           <div class="field">
             <label for="inputHeight">Altura (cm)</label>
-            <input type="number" id="inputHeight" step="0.5" min="0" placeholder="Altura en cm" onchange="onMainAnthropometryChange()" />
+            <input type="number" id="inputHeight" step="0.5" min="0" placeholder="Altura en cm" oninput="onMainAnthropometryChange()" />
           </div>
           <div class="field">
             <label for="inputFat">% Grasa <span class="opt-tag">(opc.)</span></label>
-            <input type="number" id="inputFat" step="0.1" min="0" max="75" placeholder="Auto por IMC" onchange="onMainAnthropometryChange()" />
+            <input type="number" id="inputFat" step="0.1" min="0" max="75" placeholder="Auto por IMC" oninput="onMainAnthropometryChange()" />
           </div>
         </div>
         <div id="fatHintBadge" class="hint-line"></div>
@@ -95,24 +95,24 @@
         <div class="grid-2">
           <div class="field">
             <label for="inputHorizon">Horizonte (semanas)</label>
-            <input type="number" id="inputHorizon" step="1" min="0" max="156" placeholder="Semanas a simular" onchange="calculate()" />
+            <input type="number" id="inputHorizon" step="1" min="0" max="156" placeholder="Semanas a simular" oninput="scheduleCalculate()" />
           </div>
           <div class="field">
             <label for="inputBaseline">Baseline 25(OH)D (ng/mL)</label>
-            <input type="number" id="inputBaseline" step="0.5" min="0" placeholder="Nivel inicial ng/mL" onchange="calculate()" />
+            <input type="number" id="inputBaseline" step="0.5" min="0" placeholder="Nivel inicial ng/mL" oninput="scheduleCalculate()" />
           </div>
           <div class="field">
             <label for="inputHalfLife">Vida media t½ (días)</label>
-            <input type="number" id="inputHalfLife" step="0.5" min="5" max="60" value="25" placeholder="Días (def. 25)" onchange="calculate()" />
+            <input type="number" id="inputHalfLife" step="0.5" min="5" max="60" value="25" placeholder="Días (def. 25)" oninput="scheduleCalculate()" />
           </div>
           <div class="field">
             <label for="inputKa">Absorción D₃ ka (d⁻¹)</label>
-            <input type="number" id="inputKa" step="0.02" min="0.05" max="2" value="0.28" placeholder="Tasa (def. 0.28)" onchange="calculate()" />
+            <input type="number" id="inputKa" step="0.02" min="0.05" max="2" value="0.28" placeholder="Tasa (def. 0.28)" oninput="scheduleCalculate()" />
           </div>
         </div>
         <div class="field" style="margin-top:8px;">
           <label for="inputFactorOverride">Escala Factor Distribución (Calibración)</label>
-          <input type="number" id="inputFactorOverride" step="0.01" min="0.4" max="2.5" value="1.0" placeholder="Escala (def. 1.0)" onchange="calculate()" />
+          <input type="number" id="inputFactorOverride" step="0.01" min="0.4" max="2.5" value="1.0" placeholder="Escala (def. 1.0)" oninput="scheduleCalculate()" />
         </div>
       </section>
 
@@ -128,19 +128,19 @@
           <div class="grid-2">
             <div class="field">
               <label for="repIU">Dosis repetida (UI)</label>
-              <input type="number" id="repIU" step="500" min="0" placeholder="Cantidad en UI" onchange="calculate()" />
+              <input type="number" id="repIU" step="500" min="0" placeholder="Cantidad en UI" oninput="scheduleCalculate()" />
             </div>
             <div class="field">
               <label for="repInterval">Intervalo (semanas)</label>
-              <input type="number" id="repInterval" step="0.5" min="0" placeholder="Cada cuántas sem." onchange="calculate()" />
+              <input type="number" id="repInterval" step="0.5" min="0" placeholder="Cada cuántas sem." oninput="scheduleCalculate()" />
             </div>
             <div class="field">
               <label for="repCount">N.º de tomas</label>
-              <input type="number" id="repCount" step="1" min="0" placeholder="Total de tomas" onchange="calculate()" />
+              <input type="number" id="repCount" step="1" min="0" placeholder="Total de tomas" oninput="scheduleCalculate()" />
             </div>
             <div class="field">
               <label for="repStartWeek">Semana inicio</label>
-              <input type="number" id="repStartWeek" step="0.5" min="0" placeholder="Sem. inicial (0 = hoy)" onchange="calculate()" />
+              <input type="number" id="repStartWeek" step="0.5" min="0" placeholder="Sem. inicial (0 = hoy)" oninput="scheduleCalculate()" />
             </div>
           </div>
 
