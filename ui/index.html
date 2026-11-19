@@ -8,6 +8,11 @@
   <script src="chart.umd.min.js"></script>
 </head>
 <body>
+    <div class="theme-selector" id="themeSelectorContainer" style="position: fixed; top: 12px; right: 12px; z-index: 9999;">
+      <button type="button" onclick="setAppTheme('light')" id="theme-btn-light">Claro</button>
+      <button type="button" onclick="setAppTheme('dark')" id="theme-btn-dark">Oscuro</button>
+      <button type="button" onclick="setAppTheme('auto')" id="theme-btn-auto">Auto</button>
+    </div>
   <!-- BARRA SUPERIOR -->
   <header class="topbar">
     <div class="brand">

@@ -2928,7 +2928,7 @@ function calculate() {
    16. ACTUALIZACIÓN AUTOMÁTICA VÍA GITHUB RELEASES (PC + ANDROID)
    ========================================================================== */
 
-const APP_CURRENT_VERSION = "0.2.0";
+const APP_CURRENT_VERSION = "0.3.0";
 const GITHUB_REPO_SLUG = "JoTaC3/Vit-d-Project";
 
 function compareSemver(a, b) {
@@ -3047,4 +3047,57 @@ async function checkAppUpdates() {
 document.addEventListener("DOMContentLoaded", () => {
   initProfilesStore();
   setTimeout(checkAppUpdates, 2500);
+});
+
+
+// --- CONTROLADOR DE TEMAS v0.3.0 (AUTOMÁTICO Y MANUAL) ---
+function setAppTheme(theme) {
+  const root = document.documentElement;
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  localStorage.setItem("app-theme", theme);
+
+  ["light", "dark", "auto"].forEach(t => {
+    const btn = document.getElementById(`theme-btn-${t}`);
+    if (btn) btn.classList.remove("active");
+  });
+
+  const activeBtn = document.getElementById(`theme-btn-${theme}`);
+  if (activeBtn) activeBtn.classList.add("active");
+
+  const applyTheme = (t) => {
+    root.setAttribute("data-theme", t);
+    if (typeof Chart !== "undefined" && Chart.instances) {
+      Object.values(Chart.instances).forEach(chart => {
+        const textColor = t === "dark" ? "#9E978B" : "#5C584F";
+        const gridColor = t === "dark" ? "#2D2A25" : "#E2DDD2";
+        if (chart.options.scales) {
+          if (chart.options.scales.x) {
+            chart.options.scales.x.ticks.color = textColor;
+            chart.options.scales.x.grid.color = gridColor;
+          }
+          if (chart.options.scales.y) {
+            chart.options.scales.y.ticks.color = textColor;
+            chart.options.scales.y.grid.color = gridColor;
+          }
+        }
+        chart.update("none");
+      });
+    }
+  };
+
+  if (theme === "auto") {
+    applyTheme(darkQuery.matches ? "dark" : "light");
+    darkQuery.onchange = (e) => {
+      if (localStorage.getItem("app-theme") === "auto") {
+        applyTheme(e.matches ? "dark" : "light");
+      }
+    };
+  } else {
+    applyTheme(theme);
+    darkQuery.onchange = null;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  setAppTheme(localStorage.getItem("app-theme") || "auto");
 });

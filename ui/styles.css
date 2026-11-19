@@ -1,5 +1,110 @@
+/* --- SISTEMA DE TEMAS (v0.3.0) --- */
+:root[data-theme="light"] {
+  --bg-base: #F6F4EF;
+  --bg-surface: #FDFCF9;
+  --bg-hover: #E2DDD2;
+  --border-subtle: #E2DDD2;
+  --text-primary: #1C1B18;
+  --text-secondary: #5C584F;
+  --accent-primary: #C86D1F;
+  --accent-primary-hover: #A05211;
+  --accent-secondary: #2B6E5C;
+  --accent-secondary-hover: #1E4E41;
+  --shadow-subtle: rgba(28, 27, 24, 0.04);
+  --error: #B83A2D;
+}
+
+:root[data-theme="dark"] {
+  --bg-base: #141311;
+  --bg-surface: #1E1C19;
+  --bg-hover: #282521;
+  --border-subtle: #2D2A25;
+  --text-primary: #EDE9E0;
+  --text-secondary: #9E978B;
+  --accent-primary: #E59A3C;
+  --accent-primary-hover: #C57E22;
+  --accent-secondary: #4FA392;
+  --accent-secondary-hover: #3C7F71;
+  --shadow-subtle: rgba(0, 0, 0, 0.2);
+  --error: #D95B4E;
+}
+
+/* Rediseño Global UI de precisión */
+body {
+  background-color: var(--bg-base) !important;
+  color: var(--text-primary) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  margin: 0;
+  padding: 0;
+}
+
+/* Tarjetas y Contenedores */
+.card, .panel, .bg-white, .bg-neutral, .bg-gray-850 {
+  background-color: var(--bg-surface) !important;
+  border: 1.5px solid var(--border-subtle) !important;
+  box-shadow: 0 4px 12px var(--shadow-subtle) !important;
+  border-radius: 12px !important;
+  transition: transform 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Botones con estados */
+button, .btn, .btn-primary, .bg-blue-600 {
+  background-color: var(--accent-primary) !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 18px !important;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s active, outline 0.2s ease !important;
+}
+button:hover, .btn:hover {
+  background-color: var(--accent-primary-hover) !important;
+}
+button:focus, .btn:focus {
+  outline: 2px solid var(--accent-secondary) !important;
+  outline-offset: 2px !important;
+}
+
+/* Inputs, Selectores, etc */
+input, select, textarea {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1.5px solid var(--border-subtle) !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+}
+input:focus, select:focus {
+  border-color: var(--accent-primary) !important;
+  outline: none !important;
+}
+
+/* El control de cambio de tema */
+.theme-selector {
+  display: flex;
+  gap: 4px;
+  background-color: var(--bg-hover);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+  margin: 10px;
+}
+.theme-selector button {
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
+}
+.theme-selector button.active {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 2px 5px var(--shadow-subtle);
+}
 /* ==========================================================================
-   VITAMINA D SIMULATOR V7.0 — ESTILOS Y TEMAS (DARK / CLINICAL / WARM)
+   VITAMINA D SIMULATOR V7.0 â€” ESTILOS Y TEMAS (DARK / CLINICAL / WARM)
    ========================================================================== */
 
 :root,
@@ -1066,7 +1171,7 @@ button,
 }
 
 /* ==========================================================================
-   AJUSTES RESPONSIVOS Y SAFE-AREA PARA ANDROID / MÓVIL
+   AJUSTES RESPONSIVOS Y SAFE-AREA PARA ANDROID / MÃ“VIL
    ========================================================================== */
 .topbar {
   padding-top: max(12px, env(safe-area-inset-top));
@@ -1170,7 +1275,7 @@ button,
 }
 
 /* ==========================================================================
-   BANNER DE ACTUALIZACIÓN AUTOMÁTICA (PC / ANDROID)
+   BANNER DE ACTUALIZACIÃ“N AUTOMÃTICA (PC / ANDROID)
    ========================================================================== */
 .app-update-banner {
   display: flex;
