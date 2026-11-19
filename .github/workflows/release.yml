@@ -24,7 +24,7 @@ jobs:
       - name: Configurar Rust estable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Caché de Rust
+      - name: CachÃ© de Rust
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -41,7 +41,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Vitamina D Simulator ${{ github.ref_name }}'
-          releaseBody: 'Actualización automática para Windows (x64) y Android (APK universal firmado).'
+          releaseBody: 'ActualizaciÃ³n automÃ¡tica para Windows (x64) y Android (APK universal firmado).'
           releaseDraft: false
           prerelease: false
 
@@ -63,21 +63,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar Android SDK y NDK
-        uses: android-actions/setup-android@v3
-
-      - name: Instalar NDK y Build-Tools
+      - name: Configurar Android SDK, NDK y Build-Tools
         run: |
-          sdkmanager --install "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35"
+          SDKMGR="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
+          "$SDKMGR" --install "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35"
           NDK_DIR=$(ls -d "$ANDROID_HOME/ndk/"* | sort -V | tail -n 1)
           echo "NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
 
       - name: Configurar Rust + targets Android
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
-      - name: Caché de Rust
+      - name: CachÃ© de Rust
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
