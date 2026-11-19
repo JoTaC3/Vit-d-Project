@@ -1,0 +1,47 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Vitamina D Simulator",
+  "version": "0.2.0",
+  "identifier": "com.jc.vitamindsim",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Vitamin D Simulator",
+        "width": 1380,
+        "height": 880,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDAxRjQ0REUxNDE4MEM1MTAKUldRUXhZQkI0VTMwQWNxNmVxTkRQM0J3a01mc3FkdlRhNzNQMGxSdFpNWlNnR1Z3NXMvWGE3Q24K",
+      "endpoints": [
+        "https://github.com/JoTaC3/Vit-d-Project/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

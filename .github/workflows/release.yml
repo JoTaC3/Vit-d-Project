@@ -1,0 +1,113 @@
+name: Publicar Release (Windows + Android)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configurar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Caché de Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Instalar dependencias npm
+        run: npm ci
+
+      - name: Compilar y publicar instalador Windows firmado (latest.json + .exe/.msi)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Vitamina D Simulator ${{ github.ref_name }}'
+          releaseBody: 'Actualización automática para Windows (x64) y Android (APK universal firmado).'
+          releaseDraft: false
+          prerelease: false
+
+  build-android:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Android SDK y NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar NDK y Build-Tools
+        run: |
+          sdkmanager --install "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35"
+          NDK_DIR=$(ls -d "$ANDROID_HOME/ndk/"* | sort -V | tail -n 1)
+          echo "NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+
+      - name: Configurar Rust + targets Android
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Caché de Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Instalar dependencias npm
+        run: npm ci
+
+      - name: Inicializar y compilar APK Release
+        run: |
+          npx tauri android init
+          npx tauri android build --apk
+
+      - name: Alinear y firmar APK con Keystore fijo
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > vitd-release.keystore
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
+          UNSIGNED_APK="src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
+          SIGNED_APK="Vitamina-D-Simulator-${{ github.ref_name }}-android.apk"
+          "$BUILD_TOOLS/zipalign" -v -p 4 "$UNSIGNED_APK" app-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign             --ks vitd-release.keystore             --ks-key-alias "$ANDROID_KEY_ALIAS"             --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD"             --key-pass "pass:$ANDROID_KEY_PASSWORD"             --out "$SIGNED_APK"             app-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose "$SIGNED_APK"
+          rm -f vitd-release.keystore app-aligned.apk
+
+      - name: Subir APK firmado al Release de GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" "Vitamina-D-Simulator-${{ github.ref_name }}-android.apk" --clobber

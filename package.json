@@ -1,0 +1,20 @@
+{
+  "name": "vitd-tauri",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "tauri": "tauri",
+    "desktop:build": "tauri build",
+    "android:init": "tauri android init",
+    "android:apk": "tauri android build --apk --debug",
+    "android:release": "tauri android build --apk"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.5"
+  }
+}
