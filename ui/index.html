@@ -1,530 +1,432 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Vitamina D Simulator V7.1 — PopPK & Administrador de Perfiles</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vitamina D Simulator V7.1 | Modelo PK Compartimental</title>
   <link rel="stylesheet" href="styles.css" />
-  <script src="chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <!-- BARRA SUPERIOR -->
   <header class="topbar">
     <div class="brand">
-      <div class="brand-title">Vitamina D Simulator <span class="badge-version">V7.1 PopPK</span></div>
-      <div class="brand-subtitle">Motor Farmacocinético RK4 • Calibración MAP • Gestión de Perfiles</div>
+      <div class="brand-badge">PK V7.1</div>
+      <div>
+        <h1>Vitamina D Simulator</h1>
+        <p class="subtitle">Modelo Compartimental: Colecalciferol D3 + Calcifediol 25(OH)D3 • Perfiles + RK4</p>
+      </div>
     </div>
 
-    <!-- SELECTOR RÁPIDO DE PERFIL -->
     <div class="profile-bar">
-      <div class="profile-selector-group">
-        <label for="activeProfileSelect" class="sr-only">Perfil activo</label>
-        <select id="activeProfileSelect" onchange="switchProfile(this.value)" title="Seleccionar perfil activo"></select>
-        <span id="headerProfileSummary" class="profile-pill">Sin datos</span>
+      <div class="profile-selector-wrap">
+        <label for="profileSelector" class="profile-label">Perfil activo:</label>
+        <select id="profileSelector" aria-label="Seleccionar perfil"></select>
       </div>
-      <button type="button" id="btnOpenProfileManager" class="btn-primary btn-profile-open" onclick="openProfileManager('body')">
-        Administrador de Perfiles
-      </button>
+      <div class="profile-actions">
+        <button id="openProfileModalBtn" class="btn-secondary small" title="Gestionar perfiles">👥 Perfiles</button>
+        <button id="saveProfileBtn" class="btn-secondary small" title="Guardar cambios en perfil actual">💾 Guardar</button>
+      </div>
     </div>
 
-    <!-- CONTROLES DE MODO Y TEMA -->
     <div class="topbar-actions">
-      <span id="autosaveBadge" class="autosave-badge">Listo</span>
-      <div class="segmented-control" role="group" aria-label="Modo de simulación">
-        <button type="button" id="btnModeSimulation" class="active" onclick="setMode('simulation')">Bolos / Intervalos</button>
-        <button type="button" id="btnModeDaily" onclick="setMode('daily')">Fases Diarias</button>
+      <div class="unit-toggle" role="group" aria-label="Selector de unidades">
+        <span class="toggle-label">Unidad:</span>
+        <div class="segmented-control" id="unitToggle">
+          <button type="button" data-unit="ng/mL" class="active">ng/mL</button>
+          <button type="button" data-unit="nmol/L">nmol/L</button>
+        </div>
       </div>
-      <div class="segmented-control" role="group" aria-label="Tema visual">
-        <button type="button" id="btnThemeLight" onclick="setAppTheme('light')">Día</button>
-        <button type="button" id="btnThemeDark" onclick="setAppTheme('dark')">Noche</button>
-        <button type="button" id="btnThemeAuto" class="active" onclick="setAppTheme('auto')">Auto</button>
-      </div>
+
+      <button id="themeToggle" class="btn-secondary" title="Cambiar entre tema claro y oscuro">
+        <span id="themeIcon">🌙</span>
+        <span id="themeText">Oscuro</span>
+      </button>
     </div>
   </header>
 
-  <!-- CONTENEDOR PRINCIPAL -->
-  <div class="app-layout">
-    <!-- PANEL LATERAL DE PARÁMETROS -->
-    <aside class="sidebar">
-      <!-- 1. ANTROPOMETRÍA Y COMPOSICIÓN CORPORAL -->
-      <section class="card">
-        <div class="card-header">
-          <h2>1. Antropometría (Perfil Activo)</h2>
-          <button type="button" class="btn-link" onclick="openProfileManager('body')">Editar en Perfil</button>
-        </div>
-        <div class="grid-3">
-          <div class="field">
-            <label for="inputWeight">Peso (kg)</label>
-            <input type="number" id="inputWeight" step="0.1" min="0" placeholder="Peso en kg" oninput="onMainAnthropometryChange()" />
-          </div>
-          <div class="field">
-            <label for="inputHeight">Altura (cm)</label>
-            <input type="number" id="inputHeight" step="0.5" min="0" placeholder="Altura en cm" oninput="onMainAnthropometryChange()" />
-          </div>
-          <div class="field">
-            <label for="inputFat">% Grasa <span class="opt-tag">(opc.)</span></label>
-            <input type="number" id="inputFat" step="0.1" min="0" max="75" placeholder="Auto por IMC" oninput="onMainAnthropometryChange()" />
-          </div>
-        </div>
-        <div id="fatHintBadge" class="hint-line"></div>
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="simulador">📊 Simulador PK & Dosis</button>
+    <button class="tab-btn" data-tab="planificador">🎯 Planificador de Objetivo</button>
+    <button class="tab-btn" data-tab="memorias">📁 Memorias Guardadas</button>
+    <button class="tab-btn" data-tab="ciencia">🔬 Modelo Matemático</button>
+  </nav>
 
-        <div class="indicators-grid">
-          <div class="indicator-box">
-            <span class="ind-label">IMC</span>
-            <strong id="bmiValue">--</strong>
-            <small id="bmiCategory">--</small>
-          </div>
-          <div class="indicator-box">
-            <span class="ind-label">Grasa / Masa</span>
-            <strong id="fatValue">--</strong>
-            <small id="ffmFmDetail">Masa magra / grasa</small>
-          </div>
-          <div class="indicator-box">
-            <span class="ind-label">Vol. Rel. D₃ / 25D</span>
-            <strong><span id="factorValue">x1.00</span> / <span id="hydroFactorValue">x1.00</span></strong>
-            <small>Alometría FFM/FM</small>
-          </div>
-        </div>
-      </section>
+  <main class="container">
+    <!-- TAB 1: SIMULADOR -->
+    <section id="tab-simulador" class="tab-content active">
+      <div class="grid-layout">
+        <aside class="sidebar">
+          <div class="card">
+            <h2>1. Perfil Fisiológico Base</h2>
+            <p class="hint">La grasa corporal modula el volumen de distribución ($V_d$) y el secuestro en tejido adiposo.</p>
 
-      <!-- 2. PARÁMETROS FARMACOCINÉTICOS -->
-      <section class="card">
-        <div class="card-header">
-          <h2>2. Parámetros PK & Horizonte</h2>
-        </div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="inputHorizon">Horizonte (semanas)</label>
-            <input type="number" id="inputHorizon" step="1" min="0" max="156" placeholder="Semanas a simular" oninput="scheduleCalculate()" />
-          </div>
-          <div class="field">
-            <label for="inputBaseline">Baseline 25(OH)D (ng/mL)</label>
-            <input type="number" id="inputBaseline" step="0.5" min="0" placeholder="Nivel inicial ng/mL" oninput="scheduleCalculate()" />
-          </div>
-          <div class="field">
-            <label for="inputHalfLife">Vida media t½ (días)</label>
-            <input type="number" id="inputHalfLife" step="0.5" min="5" max="60" value="25" placeholder="Días (def. 25)" oninput="scheduleCalculate()" />
-          </div>
-          <div class="field">
-            <label for="inputKa">Absorción D₃ ka (d⁻¹)</label>
-            <input type="number" id="inputKa" step="0.02" min="0.05" max="2" value="0.28" placeholder="Tasa (def. 0.28)" oninput="scheduleCalculate()" />
-          </div>
-        </div>
-        <div class="field" style="margin-top:8px;">
-          <label for="inputFactorOverride">Escala Factor Distribución (Calibración)</label>
-          <input type="number" id="inputFactorOverride" step="0.01" min="0.4" max="2.5" value="1.0" placeholder="Escala (def. 1.0)" oninput="scheduleCalculate()" />
-        </div>
-      </section>
-
-      <!-- 3. ESQUEMA DE SUPLEMENTACIÓN D3 -->
-      <section class="card">
-        <div class="card-header">
-          <h2>3. Suplementación Colecalciferol (D₃)</h2>
-          <button type="button" class="btn-link" onclick="openProfileManager('planner')">Auto-Planificar</button>
-        </div>
-
-        <!-- MODO BOLOS / INTERVALOS -->
-        <div id="simulationControls">
-          <div class="grid-2">
-            <div class="field">
-              <label for="repIU">Dosis repetida (UI)</label>
-              <input type="number" id="repIU" step="500" min="0" placeholder="Cantidad en UI" oninput="scheduleCalculate()" />
-            </div>
-            <div class="field">
-              <label for="repInterval">Intervalo (semanas)</label>
-              <input type="number" id="repInterval" step="0.5" min="0" placeholder="Cada cuántas sem." oninput="scheduleCalculate()" />
-            </div>
-            <div class="field">
-              <label for="repCount">N.º de tomas</label>
-              <input type="number" id="repCount" step="1" min="0" placeholder="Total de tomas" oninput="scheduleCalculate()" />
-            </div>
-            <div class="field">
-              <label for="repStartWeek">Semana inicio</label>
-              <input type="number" id="repStartWeek" step="0.5" min="0" placeholder="Sem. inicial (0 = hoy)" oninput="scheduleCalculate()" />
-            </div>
-          </div>
-
-          <div class="sub-block">
-            <div class="sub-title">Dosis Libres Puntuales (D₃)</div>
-            <div class="inline-form">
-              <input type="number" id="customWeek" step="0.5" min="0" placeholder="Semana" aria-label="Semana de dosis libre" />
-              <input type="number" id="customIU" step="1000" min="0" placeholder="Dosis en UI" aria-label="Dosis libre en UI" />
-              <button type="button" class="btn-secondary btn-icon" onclick="addCustomDose()" title="Agregar dosis libre">+</button>
-            </div>
-            <table class="mini-table">
-              <thead><tr><th>Sem</th><th>Dosis</th><th></th></tr></thead>
-              <tbody id="customDosesList"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- MODO FASES DIARIAS -->
-        <div id="dailyControls" class="hidden">
-          <div class="inline-form grid-daily">
-            <input type="number" id="dailyStart" step="0.5" min="0" placeholder="Sem. inicio" aria-label="Semana de inicio de fase" />
-            <input type="number" id="dailyEnd" step="0.5" min="0" placeholder="Sem. fin" aria-label="Semana de fin de fase" />
-            <input type="number" id="dailyIU" step="200" min="0" placeholder="UI por día" aria-label="Dosis diaria en UI" />
-            <button type="button" class="btn-secondary btn-icon" onclick="addDailyPhase()" title="Agregar fase diaria">+</button>
-          </div>
-          <table class="mini-table">
-            <thead><tr><th>Fase</th><th>Semanas</th><th>Dosis</th><th></th></tr></thead>
-            <tbody id="dailyPhasesList"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- 4. HIDROFEROL (CALCIFEDIOL 25-OH-D3) -->
-      <section class="card">
-        <div class="card-header">
-          <h2>4. Hidroferol (Calcifediol 25-OH-D₃)</h2>
-        </div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="hydroPreset">Presentación</label>
-            <select id="hydroPreset" onchange="applyHydroPreset()">
-              <option value="0">Seleccionar cápsula...</option>
-              <option value="0.266">0.266 mg (1 cáps. 266 µg)</option>
-              <option value="0.532">0.532 mg (2 cáps. 532 µg)</option>
-              <option value="0.133">0.133 mg (Media 133 µg)</option>
-              <option value="custom">Personalizado (mg)</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="hydroMg">Dosis (mg)</label>
-            <input type="number" id="hydroMg" step="0.001" min="0" placeholder="Dosis en mg" oninput="syncHydroPresetFromInput()" />
-          </div>
-        </div>
-        <div class="inline-form" style="margin-top:6px;">
-          <input type="number" id="hydroDay" step="1" min="0" placeholder="Día de toma (0 = hoy)" aria-label="Día de administración" />
-          <input type="text" id="hydroNote" placeholder="Nota o etiqueta (opc.)" aria-label="Nota opcional" />
-          <button type="button" class="btn-secondary btn-icon" onclick="addHydroferolDose()" title="Agregar Hidroferol">+</button>
-        </div>
-        <table class="mini-table">
-          <thead><tr><th>Momento</th><th>Magnitud</th><th>Nota</th><th></th></tr></thead>
-          <tbody id="hydroferolDosesList"></tbody>
-        </table>
-      </section>
-
-      <!-- 5. EVOLUCIÓN CORPORAL DINÁMICA -->
-      <section class="card">
-        <div class="card-header">
-          <h2>5. Evolución Corporal (FFM/FM)</h2>
-        </div>
-        <div class="inline-form">
-          <input type="number" id="bodyWeek" step="0.5" min="0" placeholder="Semana" aria-label="Semana del registro corporal" />
-          <input type="number" id="bodyWeight" step="0.1" min="1" placeholder="Peso (kg)" aria-label="Peso en kg" />
-          <input type="number" id="bodyFat" step="0.1" min="0" max="75" placeholder="% Grasa (opc.)" aria-label="Porcentaje de grasa opcional" />
-          <button type="button" class="btn-secondary btn-icon" onclick="addBodyPoint()" title="Agregar punto corporal">+</button>
-        </div>
-        <table class="mini-table">
-          <thead><tr><th>Sem</th><th>Peso</th><th>Grasa</th><th></th></tr></thead>
-          <tbody id="bodyProfileList"></tbody>
-        </table>
-      </section>
-
-      <!-- 6. MEDICIONES SÉRICAS Y CALIBRACIÓN BAYESIANA -->
-      <section class="card">
-        <div class="card-header clickable" onclick="toggleBloodPanel()">
-          <h2>6. Analíticas Séricas & Calibración MAP</h2>
-          <span id="bloodToggleIcon">▼</span>
-        </div>
-        <div id="bloodPanelBody">
-          <div class="inline-form">
-            <input type="number" id="bloodWeek" step="0.5" min="0" placeholder="Semana analítica" aria-label="Semana de analítica" />
-            <input type="number" id="bloodLevel" step="0.1" min="0" placeholder="Resultado ng/mL" aria-label="Nivel sérico en ng/mL" />
-            <button type="button" class="btn-secondary btn-icon" onclick="addBloodPoint()" title="Agregar medición sérica">+</button>
-          </div>
-          <table class="mini-table">
-            <thead><tr><th>Semana</th><th>25(OH)D Real</th><th></th></tr></thead>
-            <tbody id="bloodRowsList"></tbody>
-          </table>
-          <div class="btn-row">
-            <button type="button" class="btn-secondary" onclick="estimateBaseline()">Estimar Baseline</button>
-            <button type="button" class="btn-primary" onclick="calibrateModel()">Calibrar MAP</button>
-          </div>
-          <div id="calibrationOutput" class="calibration-box">Sin calibración ejecutada.</div>
-        </div>
-      </section>
-
-      <!-- 7. MEMORIA DE ESCENARIOS -->
-      <section class="card">
-        <div class="card-header">
-          <h2>7. Memoria del Perfil</h2>
-        </div>
-        <div class="inline-form">
-          <input type="text" id="memoryName" placeholder="Nombre del escenario a guardar" aria-label="Nombre del escenario" />
-          <button type="button" class="btn-primary" onclick="saveSimulationMemory()">Guardar</button>
-        </div>
-        <div id="savedMemoriesList" class="memory-list"></div>
-        <div class="btn-row" style="margin-top:8px;">
-          <button type="button" class="btn-secondary" onclick="exportMemoriesJSON()">Exportar JSON</button>
-          <label class="btn-secondary file-label">
-            Importar JSON
-            <input type="file" accept=".json" onchange="importMemoriesJSON(event)" hidden />
-          </label>
-          <button type="button" class="btn-danger" onclick="resetDefaultState()">Reiniciar</button>
-        </div>
-      </section>
-    </aside>
-
-    <!-- ÁREA PRINCIPAL DE RESULTADOS -->
-    <main class="main-content">
-      <!-- ALERTA CLÍNICA DINÁMICA DE TOXICIDAD / HIPERCALCEMIA / K2 -->
-      <div id="globalSafetyBanner" class="safety-stack"></div>
-
-      <!-- TARJETAS KPI -->
-      <section class="kpi-grid">
-        <div class="kpi-card">
-          <span class="kpi-title">Concentración Pico</span>
-          <strong id="statPeak" class="kpi-value">--</strong>
-          <span id="statPeakWeek" class="kpi-sub">Semana --</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-title">Nivel Final Horizonte</span>
-          <strong id="statFinal" class="kpi-value">--</strong>
-          <span id="statFinalWeek" class="kpi-sub">Fin de horizonte</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-title">Carga Acumulada Eq.</span>
-          <strong id="statTotalIU" class="kpi-value">0 UI</strong>
-          <span id="statAvgDaily" class="kpi-sub">Promedio diario 0 UI/día</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-title">Umbral Suficiencia (30 ng/mL)</span>
-          <strong id="statWeek30" class="kpi-value">--</strong>
-          <span id="statWeek30Sub" class="kpi-sub">Tiempo de alcance</span>
-        </div>
-      </section>
-
-      <!-- GRÁFICO PRINCIPAL SÉRICO -->
-      <section class="card chart-card">
-        <div class="card-header">
-          <h2>Trayectoria Sérica 25(OH)D (ng/mL) + Banda IC 95%</h2>
-          <div class="zone-legend">
-            <span class="z-tag z-def">&lt;20 Defic.</span>
-            <span class="z-tag z-ins">20–30 Insuf.</span>
-            <span class="z-tag z-opt">30–60 Óptimo</span>
-            <span class="z-tag z-high">60–100 Alto</span>
-            <span class="z-tag z-tox">&gt;100 Riesgo Tox.</span>
-          </div>
-        </div>
-        <div class="canvas-wrapper">
-          <canvas id="bloodChart"></canvas>
-        </div>
-      </section>
-
-      <!-- GRÁFICO DE DOSIS Y TABLA CRONOGRAMA -->
-      <div class="bottom-grid">
-        <section class="card chart-card-sm">
-          <div class="card-header">
-            <h2>Distribución de Dosis en el Tiempo</h2>
-          </div>
-          <div class="canvas-wrapper-sm">
-            <canvas id="doseChart"></canvas>
-          </div>
-        </section>
-
-        <section class="card table-card">
-          <div class="card-header">
-            <h2>Cronograma de Administración</h2>
-          </div>
-          <div class="table-scroll">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Esquema / Fase</th>
-                  <th>Momento</th>
-                  <th>Dosis</th>
-                </tr>
-              </thead>
-              <tbody id="scheduleTableBody"></tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    </main>
-  </div>
-
-  <!-- MODAL: ADMINISTRADOR DE PERFILES -->
-  <div id="profileManagerModal" class="modal-backdrop hidden" onclick="handleModalBackdropClick(event)">
-    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
-      <div class="modal-header">
-        <div>
-          <h2 id="profileModalTitle">Administrador de Perfiles y Seguimiento Clínico</h2>
-          <p class="modal-subtitle">Gestiona múltiples perfiles, composición corporal, niveles estimados y planes personalizados</p>
-        </div>
-        <button type="button" class="btn-close-modal" onclick="closeProfileManager()" title="Cerrar">×</button>
-      </div>
-
-      <div class="profile-crud-bar">
-        <div class="profile-switch-box">
-          <div class="section-mini-title">Perfil Activo</div>
-          <label for="profileModalSelect">Seleccionar perfil guardado</label>
-          <div class="inline-form">
-            <select id="profileModalSelect" onchange="switchProfile(this.value)"></select>
-            <button type="button" class="btn-danger" onclick="deleteActiveProfile()" title="Eliminar perfil seleccionado">Eliminar</button>
-          </div>
-        </div>
-
-        <div class="profile-create-box">
-          <div class="section-mini-title">Crear Nuevo Perfil</div>
-          <div class="create-grid">
-            <div class="field">
-              <label for="newProfileName">Nombre</label>
-              <input type="text" id="newProfileName" placeholder="Nombre del perfil" />
-            </div>
-            <div class="field">
-              <label for="newProfileHeight">Altura (cm)</label>
-              <input type="number" id="newProfileHeight" step="0.5" min="50" max="250" placeholder="Altura en cm" />
-            </div>
-            <div class="field">
-              <label for="newProfileWeight">Peso (kg)</label>
-              <input type="number" id="newProfileWeight" step="0.1" min="20" max="350" placeholder="Peso en kg" />
-            </div>
-            <div class="field">
-              <label for="newProfileFat">% Grasa <span class="opt-tag">(opc.)</span></label>
-              <input type="number" id="newProfileFat" step="0.1" min="1" max="75" placeholder="% grasa (opcional)" />
-            </div>
-            <button type="button" class="btn-primary btn-align-bottom" onclick="createNewProfile()">+ Crear Perfil</button>
-          </div>
-        </div>
-      </div>
-
-      <nav class="profile-tabs" role="tablist">
-        <button type="button" id="tabBtnProfileBody" class="tab-btn active" onclick="switchProfileTab('body')">
-          1. Datos y Composición Corporal
-        </button>
-        <button type="button" id="tabBtnProfileTracking" class="tab-btn" onclick="switchProfileTab('tracking')">
-          2. Seguimiento de Vitamina D
-        </button>
-        <button type="button" id="tabBtnProfilePlanner" class="tab-btn" onclick="switchProfileTab('planner')">
-          3. Planificador Objetivo y Semanas
-        </button>
-      </nav>
-
-      <div id="tabPaneProfileBody" class="tab-pane">
-        <div class="two-col-pane">
-          <div class="pane-card">
-            <h3>Datos Base del Perfil</h3>
-            <div class="grid-2">
-              <div class="field">
-                <label for="editProfileName">Nombre del perfil</label>
-                <input type="text" id="editProfileName" placeholder="Ingresa el nombre del perfil" />
+            <div class="form-row">
+              <div class="form-group">
+                <label for="sex">Sexo biológico</label>
+                <select id="sex">
+                  <option value="male">Hombre</option>
+                  <option value="female">Mujer</option>
+                </select>
               </div>
-              <div class="field">
-                <label for="editProfileHeight">Altura (cm)</label>
-                <input type="number" id="editProfileHeight" step="0.5" min="0" placeholder="Ingresa altura en cm" />
-              </div>
-              <div class="field">
-                <label for="editProfileWeight">Peso Actual (kg)</label>
-                <input type="number" id="editProfileWeight" step="0.1" min="0" placeholder="Ingresa peso en kg" />
-              </div>
-              <div class="field">
-                <label for="editProfileFat">Porcentaje de Grasa (%) <span class="opt-tag">(opcional)</span></label>
-                <input type="number" id="editProfileFat" step="0.1" min="0" max="75" placeholder="Vacío = estimar por IMC" />
+              <div class="form-group">
+                <label for="age">Edad (años)</label>
+                <input type="number" id="age" value="22" min="15" max="100" />
               </div>
             </div>
-            <div id="editProfileFatNote" class="hint-line" style="margin-top:6px;"></div>
-            <div class="btn-row" style="margin-top:12px;">
-              <button type="button" class="btn-primary" onclick="saveActiveProfileDetails()">Guardar Cambios en Perfil</button>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="height">Estatura (cm)</label>
+                <input type="number" id="height" value="180" min="120" max="230" />
+              </div>
+              <div class="form-group">
+                <label for="weight">Peso inicial (kg)</label>
+                <input type="number" id="weight" value="110" min="35" max="250" step="0.1" />
+              </div>
             </div>
-            <div id="profileCompSummary" class="comp-summary-grid"></div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="bodyFat">Grasa corporal inicial (%)</label>
+                <input type="number" id="bodyFat" value="32" min="4" max="65" step="0.5" />
+              </div>
+              <div class="form-group">
+                <label for="skinTone">Fototipo (Fitzpatrick)</label>
+                <select id="skinTone">
+                  <option value="1.2">Tipo I-II (Muy clara)</option>
+                  <option value="1.0" selected>Tipo III-IV (Intermedia)</option>
+                  <option value="0.7">Tipo V-VI (Oscura)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="sunExposure">Síntesis solar diaria equivalente</label>
+              <select id="sunExposure">
+                <option value="0" selected>Mínima / Oficina / Invierno (0 UI/día)</option>
+                <option value="600">Baja (~15 min brazos/cara: ~600 UI/día)</option>
+                <option value="1500">Moderada (~30 min sol medio: ~1500 UI/día)</option>
+                <option value="3000">Alta (verano / exterior frecuente: ~3000 UI/día)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="simWeeks">Horizonte temporal (semanas)</label>
+              <input type="number" id="simWeeks" value="24" min="4" max="104" />
+            </div>
+
+            <div class="auto-save-status">
+              <span class="dot-live"></span> Guardado automático activo por perfil
+            </div>
           </div>
 
-          <div class="pane-card">
-            <h3>Modificar / Registrar Evolución de Composición Corporal</h3>
-            <p class="small-desc">
-              Registra cambios de peso y grasa a lo largo de las semanas. El modelo ajustará automáticamente el volumen de distribución (FFM/FM) en cada tramo.
-            </p>
-            <div class="body-mod-grid">
-              <div class="field">
-                <label for="profChangeWeek">Semana</label>
-                <input type="number" id="profChangeWeek" step="0.5" min="0" placeholder="N.º semana (0 = inicio)" />
+          <div class="card">
+            <h2>2. Exámenes Reales de Laboratorio</h2>
+            <p class="hint">Puedes registrar exámenes en <strong id="examUnitLabel">ng/mL</strong>. El examen en Semana 0 define el nivel basal inicial; los posteriores calibran la curva.</p>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="examWeek">Semana</label>
+                <input type="number" id="examWeek" value="0" min="0" max="104" step="0.1" />
               </div>
-              <div class="field">
-                <label for="profChangeWeight">Peso (kg)</label>
-                <input type="number" id="profChangeWeight" step="0.1" min="1" placeholder="Peso en kg" />
+              <div class="form-group">
+                <label for="examValue">Valor (<span class="unit-text">ng/mL</span>)</label>
+                <input type="number" id="examValue" value="23.5" min="1" max="500" step="0.1" />
               </div>
-              <div class="field">
-                <label for="profChangeFat">% Grasa <span class="opt-tag">(opc.)</span></label>
-                <input type="number" id="profChangeFat" step="0.1" min="0" max="75" placeholder="% grasa (opcional)" />
-              </div>
-              <button type="button" class="btn-secondary btn-align-bottom" onclick="addProfileBodyModification()">Registrar</button>
             </div>
-            <div class="table-scroll" style="max-height:220px;margin-top:10px;">
-              <table class="data-table">
+            <div class="form-group">
+              <label for="examNote">Nota / Laboratorio (opcional)</label>
+              <input type="text" id="examNote" placeholder="Ej. Examen basal, Control 3 meses..." />
+            </div>
+            <button id="addExamBtn" class="btn-primary full-width">+ Agregar Examen</button>
+
+            <div class="table-wrapper mt-12">
+              <table class="mini-table">
                 <thead>
                   <tr>
-                    <th>Semana</th>
-                    <th>Peso</th>
-                    <th>% Grasa</th>
-                    <th>FFM / FM</th>
+                    <th>Sem</th>
+                    <th>Nivel (<span class="unit-text">ng/mL</span>)</th>
+                    <th>Nota</th>
                     <th></th>
                   </tr>
                 </thead>
-                <tbody id="profileBodyHistoryList"></tbody>
+                <tbody id="examsTableBody"></tbody>
               </table>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div id="tabPaneProfileTracking" class="tab-pane hidden">
-        <div class="tracking-hero">
-          <div class="tracking-metric-card">
-            <span class="tracking-label">Estado Estimado en Sangre</span>
-            <div id="trackingCurrentLevel" class="tracking-big-text">
-              Tus niveles actuales de Vitamina D en sangre deberían ser -- ng/mL
-            </div>
-            <div class="tracking-badges">
-              <span id="trackingClinicalBadge" class="status-pill">Sin datos</span>
-              <span id="trackingCurrentSource" class="tracking-source">Basado en perfil y trayectoria</span>
-            </div>
-          </div>
+          <div class="card">
+            <h2>3. Evolución Antropométrica</h2>
+            <p class="hint">Registra cambios reales de peso y grasa a lo largo de las semanas. El modelo ajusta dinámicamente el volumen de distribución.</p>
 
-          <div class="tracking-goal-box">
-            <label for="trackingDesiredTarget">Valor Objetivo de Referencia (ng/mL)</label>
-            <div class="inline-form">
-              <input type="number" id="trackingDesiredTarget" step="1" min="20" max="120" placeholder="Objetivo en ng/mL (ej. 50)" oninput="renderProfileTracking()" />
-              <button type="button" class="btn-primary" onclick="sendTrackingTargetToPlanner()">Crear Plan en Semanas →</button>
-            </div>
-            <small class="small-desc">Rango óptimo habitual: 40–60 ng/mL.</small>
-          </div>
-        </div>
-        <div id="trackingRecommendationsBox" class="recommendations-grid"></div>
-      </div>
-
-      <div id="tabPaneProfilePlanner" class="tab-pane hidden">
-        <div class="planner-controls-card">
-          <div class="planner-inputs-grid">
-            <div class="field">
-              <label for="plannerInitialLevel">Valor Inicial 25(OH)D (ng/mL)</label>
-              <div class="inline-form">
-                <input type="number" id="plannerInitialLevel" step="0.5" min="0" max="150" placeholder="Nivel inicial en ng/mL" />
-                <button type="button" class="btn-secondary" onclick="fillPlannerFromCurrent()" title="Usar nivel actual estimado">Usar actual</button>
+            <div class="form-row-3">
+              <div class="form-group">
+                <label for="anthroWeek">Sem</label>
+                <input type="number" id="anthroWeek" value="8" min="1" max="104" step="0.5" />
+              </div>
+              <div class="form-group">
+                <label for="anthroWeight">Peso (kg)</label>
+                <input type="number" id="anthroWeight" value="106" min="35" max="250" step="0.1" />
+              </div>
+              <div class="form-group">
+                <label for="anthroFat">Grasa (%)</label>
+                <input type="number" id="anthroFat" value="29" min="4" max="65" step="0.5" />
               </div>
             </div>
-            <div class="field">
-              <label for="plannerTargetLevel">Valor Objetivo 25(OH)D (ng/mL)</label>
-              <input type="number" id="plannerTargetLevel" step="0.5" min="10" max="150" placeholder="Nivel objetivo en ng/mL" />
-            </div>
-            <div class="field">
-              <label for="plannerWeeks">Plazo para alcanzarlo (Semanas)</label>
-              <input type="number" id="plannerWeeks" step="1" min="1" max="104" placeholder="Cantidad de semanas" />
-            </div>
-            <div class="field planner-btn-align">
-              <button type="button" class="btn-primary btn-generate-plans" onclick="generateTargetPlans()">
-                Calcular Planes de Suplementación
-              </button>
+            <button id="addAnthroBtn" class="btn-secondary full-width">+ Registrar Cambio Corporal</button>
+
+            <div class="table-wrapper mt-12">
+              <table class="mini-table">
+                <thead>
+                  <tr>
+                    <th>Sem</th>
+                    <th>Peso</th>
+                    <th>Grasa</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="anthroTableBody"></tbody>
+              </table>
             </div>
           </div>
-        </div>
-        <div id="plannerAlertsContainer" class="safety-stack"></div>
-        <div id="plannerCardsContainer" class="plans-grid"></div>
+
+          <div class="card">
+            <h2>4. Esquema de Dosis (D3 y Calcifediol)</h2>
+            <p class="hint">Combina dosis diarias, semanales, quincenales o bolos únicos en distintos tramos de tiempo.</p>
+
+            <div class="form-group">
+              <label for="doseType">Compuesto / Formulación</label>
+              <select id="doseType">
+                <option value="d3">Colecalciferol (Vitamina D3 estándar)</option>
+                <option value="calcifediol">Calcifediol / 25(OH)D3 (Hidroferol / acción rápida ~3.2x)</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="doseIU">Dosis por toma (UI)</label>
+                <input type="number" id="doseIU" value="4000" min="100" max="600000" step="100" />
+              </div>
+              <div class="form-group">
+                <label for="doseFreq">Frecuencia</label>
+                <select id="doseFreq">
+                  <option value="daily">Diaria (1 vez/día)</option>
+                  <option value="weekly">Semanal (cada 7 días)</option>
+                  <option value="biweekly">Quincenal (cada 14 días)</option>
+                  <option value="monthly">Mensual (cada 30 días)</option>
+                  <option value="single">Dosis única (bolo puntual)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="doseStartWeek">Desde semana</label>
+                <input type="number" id="doseStartWeek" value="0" min="0" max="104" step="0.5" />
+              </div>
+              <div class="form-group">
+                <label for="doseEndWeek">Hasta semana</label>
+                <input type="number" id="doseEndWeek" value="12" min="0.5" max="104" step="0.5" />
+              </div>
+            </div>
+
+            <button id="addDoseBtn" class="btn-primary full-width">+ Agregar Tramo de Dosis</button>
+            <button id="clearDosesBtn" class="btn-ghost full-width mt-8">Limpiar todos los tramos</button>
+
+            <div class="table-wrapper mt-12">
+              <table class="mini-table">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Dosis</th>
+                    <th>Tramo</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="dosesTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </aside>
+
+        <section class="main-panel">
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <span class="kpi-title">Nivel Inicial (Sem 0)</span>
+              <span class="kpi-value" id="kpiStart">--</span>
+              <span class="kpi-sub" id="kpiStartStatus">Basal</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Pico Máximo Estimado</span>
+              <span class="kpi-value" id="kpiPeak">--</span>
+              <span class="kpi-sub" id="kpiPeakWeek">--</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Nivel Final (Sem <span id="kpiEndWeekNum">24</span>)</span>
+              <span class="kpi-value" id="kpiEnd">--</span>
+              <span class="kpi-sub" id="kpiEndStatus">--</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Volumen Efectivo / Promedio</span>
+              <span class="kpi-value" id="kpiDailyAvg">--</span>
+              <span class="kpi-sub" id="kpiVdInfo">Vd ajustado</span>
+            </div>
+          </div>
+
+          <div id="safetyBanner" class="alert-banner info">
+            <strong>Estado Fisiológico:</strong> Cargando simulación...
+          </div>
+
+          <div class="card chart-card">
+            <div class="card-header-flex">
+              <div>
+                <h2>Curva Sérica de 25(OH)D y Calibración Clínica</h2>
+                <p class="hint">Línea continua: modelo compartimental ODE (RK4). Puntos rojos: exámenes reales ingresados.</p>
+              </div>
+              <div class="chart-actions">
+                <input type="text" id="simTitleInput" placeholder="Nombre de simulación (ej. Protocolo Otoño)" />
+                <button id="saveSimBtn" class="btn-primary">💾 Guardar en Memoria</button>
+              </div>
+            </div>
+            <div class="chart-container-lg">
+              <canvas id="bloodChart"></canvas>
+            </div>
+          </div>
+
+          <div class="two-col-charts">
+            <div class="card chart-card">
+              <h3>Reserva Adiposa y Colecalciferol Libre</h3>
+              <p class="hint">Dinámica de saturación del compartimento de almacenamiento D3.</p>
+              <div class="chart-container-sm">
+                <canvas id="adiposeChart"></canvas>
+              </div>
+            </div>
+
+            <div class="card chart-card">
+              <h3>Aporte Diario Equivalente (UI/día)</h3>
+              <p class="hint">Ingesta exógena ponderada por biodisponibilidad + síntesis solar.</p>
+              <div class="chart-container-sm">
+                <canvas id="intakeChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
+    </section>
+
+    <!-- TAB 2: PLANIFICADOR DE OBJETIVO -->
+    <section id="tab-planificador" class="tab-content">
+      <div class="planner-layout">
+        <div class="card planner-config">
+          <h2>🎯 Planificador Inverso de Objetivo Sérico</h2>
+          <p class="hint">Calcula automáticamente los protocolos de dosificación necesarios para alcanzar tu nivel objetivo de 25(OH)D partiendo de tu perfil actual.</p>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="planCurrentLevel">Nivel actual (<span class="unit-text">ng/mL</span>)</label>
+              <input type="number" id="planCurrentLevel" value="23.5" min="1" max="300" step="0.1" />
+            </div>
+            <div class="form-group">
+              <label for="planTargetLevel">Nivel objetivo (<span class="unit-text">ng/mL</span>)</label>
+              <input type="number" id="planTargetLevel" value="48" min="10" max="200" step="0.5" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="planWeeks">Plazo para alcanzarlo (semanas)</label>
+              <input type="number" id="planWeeks" value="12" min="2" max="52" step="1" />
+            </div>
+            <div class="form-group">
+              <label for="planMaintWeeks">Semanas de mantenimiento posterior</label>
+              <input type="number" id="planMaintWeeks" value="12" min="0" max="52" step="1" />
+            </div>
+          </div>
+
+          <button id="calculatePlanBtn" class="btn-primary full-width">Calcular Estrategias Recomendadas</button>
+
+          <div id="plannerAlertBox" class="alert-banner info mt-12">
+            Configura tu objetivo y presiona calcular.
+          </div>
+        </div>
+
+        <div class="planner-results" id="plannerResultsGrid"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: MEMORIAS GUARDADAS -->
+    <section id="tab-memorias" class="tab-content">
+      <div class="card">
+        <div class="card-header-flex">
+          <div>
+            <h2>📁 Memorias y Simulaciones Guardadas</h2>
+            <p class="hint">Historial persistente en tu navegador. Carga cualquier escenario o exporta tu respaldo JSON.</p>
+          </div>
+          <div class="memory-toolbar">
+            <button id="exportMemoriesBtn" class="btn-secondary">⬇️ Exportar JSON</button>
+            <label for="importMemoriesInput" class="btn-secondary file-btn">⬆️ Importar JSON</label>
+            <input type="file" id="importMemoriesInput" accept=".json" hidden />
+          </div>
+        </div>
+
+        <div id="memoriesGrid" class="memories-grid mt-16"></div>
+      </div>
+    </section>
+
+    <!-- TAB 4: MODELO MATEMÁTICO -->
+    <section id="tab-ciencia" class="tab-content">
+      <div class="card science-card">
+        <h2>🔬 Arquitectura Farmacocinética Compartimental (V7.1)</h2>
+        <p>Este simulador resuelve numéricamente mediante <strong>Runge-Kutta de 4.º orden (RK4)</strong> un sistema de ecuaciones diferenciales ordinarias (ODE) acopladas de dos compartimentos para el metabolismo de la vitamina D:</p>
+
+        <div class="science-grid">
+          <div class="science-box">
+            <h3>1. Compartimento $A_1(t)$: Colecalciferol ($D_3$)</h3>
+            <p>Representa la vitamina $D_3$ nativa absorbida por vía oral (con factor de biodisponibilidad no lineal según dosis del bolo) más la síntesis cutánea ajustada por fototipo de Fitzpatrick.</p>
+            <code>dA1/dt = Input(t) - (k_25 + k_adip(t) + k_elim1) · A1</code>
+          </div>
+
+          <div class="science-box">
+            <h3>2. Compartimento $C_2(t)$: Calcifediol Sérico $25(OH)D_3$</h3>
+            <p>Modela la hidroxilación hepática saturable (cinética tipo Michaelis-Menten sobre la enzima CYP2R1) y la eliminación sistémica dependiente de la masa magra y adiposa.</p>
+            <code>dC2/dt = [Vmax · A1 / (Km + A1) + D_calcifediol(t)] / Vd(t) - k_el · C2</code>
+          </div>
+
+          <div class="science-box">
+            <h3>3. Volumen de Distribución Dinámico $V_d(t)$</h3>
+            <p>El tejido adiposo actúa como sumidero lipofílico. Si pierdes peso o porcentaje graso durante el tratamiento, el $V_d(t)$ disminuye gradualmente y libera reserva almacenada.</p>
+            <code>Vd(t) = V_base · (Peso(t)/75)^0.75 · (1 + α · Grasa%(t))</code>
+          </div>
+
+          <div class="science-box">
+            <h3>4. Diferencia D3 vs. Calcifediol</h3>
+            <p>El calcifediol ($25(OH)D_3$) omite la hidroxilación hepática, presenta mayor hidrofilia (menor secuestro en grasa) y posee una potencia aproximada de <strong>3.2× por microgramo/UI equivalente</strong> frente al colecalciferol estándar.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL GESTOR DE PERFILES -->
+  <div id="profileManagerModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="profileModalTitle">👥 Gestor de Perfiles de Usuario</h3>
+        <button id="closeProfileModalBtn" class="btn-icon" aria-label="Cerrar">&times;</button>
+      </div>
+      <p class="hint">Cada perfil guarda de forma independiente sus datos fisiológicos, exámenes, evolución antropométrica, dosis y simulaciones.</p>
+
+      <div class="profile-create-box">
+        <input type="text" id="newProfileNameInput" placeholder="Nombre del nuevo perfil (ej. Juan Carlos, Paciente 2...)" />
+        <button id="createProfileBtn" class="btn-primary">+ Crear Perfil</button>
+      </div>
+
+      <div id="profilesListContainer" class="profiles-list mt-16"></div>
     </div>
   </div>
 
-  <script src="app_3.js"></script>
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
 </body>
 </html>
