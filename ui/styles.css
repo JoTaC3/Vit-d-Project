@@ -1,108 +1,3 @@
-/* --- SISTEMA DE TEMAS (v0.3.0) --- */
-:root[data-theme="light"] {
-  --bg-base: #F6F4EF;
-  --bg-surface: #FDFCF9;
-  --bg-hover: #E2DDD2;
-  --border-subtle: #E2DDD2;
-  --text-primary: #1C1B18;
-  --text-secondary: #5C584F;
-  --accent-primary: #C86D1F;
-  --accent-primary-hover: #A05211;
-  --accent-secondary: #2B6E5C;
-  --accent-secondary-hover: #1E4E41;
-  --shadow-subtle: rgba(28, 27, 24, 0.04);
-  --error: #B83A2D;
-}
-
-:root[data-theme="dark"] {
-  --bg-base: #141311;
-  --bg-surface: #1E1C19;
-  --bg-hover: #282521;
-  --border-subtle: #2D2A25;
-  --text-primary: #EDE9E0;
-  --text-secondary: #9E978B;
-  --accent-primary: #E59A3C;
-  --accent-primary-hover: #C57E22;
-  --accent-secondary: #4FA392;
-  --accent-secondary-hover: #3C7F71;
-  --shadow-subtle: rgba(0, 0, 0, 0.2);
-  --error: #D95B4E;
-}
-
-/* Rediseño Global UI de precisión */
-body {
-  background-color: var(--bg-base) !important;
-  color: var(--text-primary) !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  transition: background-color 0.3s ease, color 0.3s ease;
-  margin: 0;
-  padding: 0;
-}
-
-/* Tarjetas y Contenedores */
-.card, .panel, .bg-white, .bg-neutral, .bg-gray-850 {
-  background-color: var(--bg-surface) !important;
-  border: 1.5px solid var(--border-subtle) !important;
-  box-shadow: 0 4px 12px var(--shadow-subtle) !important;
-  border-radius: 12px !important;
-  transition: transform 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
-}
-
-/* Botones con estados */
-button, .btn, .btn-primary, .bg-blue-600 {
-  background-color: var(--accent-primary) !important;
-  color: #FFFFFF !important;
-  font-weight: 600 !important;
-  border: none !important;
-  border-radius: 8px !important;
-  padding: 10px 18px !important;
-  cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s active, outline 0.2s ease !important;
-}
-button:hover, .btn:hover {
-  background-color: var(--accent-primary-hover) !important;
-}
-button:focus, .btn:focus {
-  outline: 2px solid var(--accent-secondary) !important;
-  outline-offset: 2px !important;
-}
-
-/* Inputs, Selectores, etc */
-input, select, textarea {
-  background-color: var(--bg-surface) !important;
-  color: var(--text-primary) !important;
-  border: 1.5px solid var(--border-subtle) !important;
-  border-radius: 8px !important;
-  padding: 8px 12px !important;
-}
-input:focus, select:focus {
-  border-color: var(--accent-primary) !important;
-  outline: none !important;
-}
-
-/* El control de cambio de tema */
-.theme-selector {
-  display: flex;
-  gap: 4px;
-  background-color: var(--bg-hover);
-  padding: 4px;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtle);
-  width: fit-content;
-  margin: 10px;
-}
-.theme-selector button {
-  background: transparent !important;
-  color: var(--text-secondary) !important;
-  padding: 6px 12px !important;
-  font-size: 13px !important;
-  border-radius: 6px !important;
-}
-.theme-selector button.active {
-  background-color: var(--bg-surface) !important;
-  color: var(--text-primary) !important;
-  box-shadow: 0 2px 5px var(--shadow-subtle);
-}
 /* ==========================================================================
    VITAMINA D SIMULATOR V7.0 â€” ESTILOS Y TEMAS (DARK / CLINICAL / WARM)
    ========================================================================== */
@@ -1298,4 +1193,316 @@ button,
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+
+/* === CRONOBIOLOGIA NORDICA v0.3.1 === */
+:root,
+:root[data-theme="light"],
+:root[data-theme="clinical"] {
+  --nordic-bg: #EEF1F4;
+  --nordic-surface: #F9FAFB;
+  --nordic-sunken: #E3E8EE;
+  --nordic-border: #CFD7E0;
+  --nordic-ink: #141C24;
+  --nordic-muted: #52606D;
+  --nordic-primary: #255C99;
+  --nordic-primary-hover: #1C487A;
+  --nordic-primary-ink: #FFFFFF;
+  --nordic-optimal: #2E7D6B;
+  --nordic-optimal-bg: rgba(46, 125, 107, 0.12);
+  --nordic-danger: #B83A3A;
+  --nordic-danger-bg: rgba(184, 58, 58, 0.10);
+  --nordic-shadow: 0 1px 3px rgba(20, 28, 36, 0.05), 0 1px 2px rgba(20, 28, 36, 0.03);
+}
+
+:root[data-theme="dark"],
+:root[data-theme="warm"] {
+  --nordic-bg: #11151A;
+  --nordic-surface: #181E26;
+  --nordic-sunken: #0D1014;
+  --nordic-border: #26303D;
+  --nordic-ink: #E6ECF2;
+  --nordic-muted: #8FA0B2;
+  --nordic-primary: #5B9BD5;
+  --nordic-primary-hover: #74AEE0;
+  --nordic-primary-ink: #0B1117;
+  --nordic-optimal: #48A999;
+  --nordic-optimal-bg: rgba(72, 169, 153, 0.14);
+  --nordic-danger: #E06C6C;
+  --nordic-danger-bg: rgba(224, 108, 108, 0.14);
+  --nordic-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+}
+
+body {
+  background-color: var(--nordic-bg);
+  background-image: none;
+  color: var(--nordic-ink);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.22s ease, color 0.22s ease;
+}
+
+/* Barra superior alineada sin superposiciones en Windows y Android */
+.topbar {
+  background-color: var(--nordic-surface);
+  background-image: none;
+  border-bottom: 1px solid var(--nordic-border);
+  box-shadow: none;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: 12px;
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+}
+
+.brand-title {
+  color: var(--nordic-ink);
+  letter-spacing: -0.02em;
+}
+
+.brand-subtitle {
+  color: var(--nordic-muted);
+}
+
+.badge-version {
+  background-color: var(--nordic-sunken);
+  color: var(--nordic-primary);
+  border: 1px solid var(--nordic-border);
+  font-weight: 600;
+}
+
+.profile-bar,
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-pill,
+.autosave-badge {
+  background-color: var(--nordic-sunken);
+  color: var(--nordic-muted);
+  border: 1px solid var(--nordic-border);
+}
+
+/* Tarjetas clínicas con elevación sutil y bordes nítidos */
+.card,
+.kpi-card,
+.pane-card,
+.tracking-metric-card,
+.tracking-goal-box,
+.planner-controls-card,
+.modal-dialog {
+  background-color: var(--nordic-surface);
+  background-image: none;
+  border: 1px solid var(--nordic-border);
+  border-radius: 10px;
+  box-shadow: var(--nordic-shadow);
+  color: var(--nordic-ink);
+}
+
+.indicator-box,
+.calibration-box,
+.profile-crud-bar,
+.profile-switch-box,
+.profile-create-box {
+  background-color: var(--nordic-sunken);
+  border: 1px solid var(--nordic-border);
+  border-radius: 8px;
+}
+
+.card-header h2,
+.pane-card h3 {
+  color: var(--nordic-ink);
+  letter-spacing: -0.01em;
+}
+
+.ind-label,
+.kpi-title,
+.kpi-sub,
+.field label,
+.small-desc,
+.hint-line,
+.modal-subtitle {
+  color: var(--nordic-muted);
+}
+
+.kpi-value,
+.indicator-box strong,
+.data-table td,
+.mini-table td,
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inputs y selects limpios */
+input,
+select {
+  background-color: var(--nordic-sunken);
+  color: var(--nordic-ink);
+  border: 1px solid var(--nordic-border);
+  border-radius: 7px;
+  min-height: 36px;
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+
+input:focus,
+select:focus {
+  background-color: var(--nordic-surface);
+  border-color: var(--nordic-primary);
+  outline: 2px solid color-mix(in srgb, var(--nordic-primary) 24%, transparent);
+  outline-offset: 0;
+}
+
+/* Jerarquía estricta de botones: solo .btn-primary lleva color sólido */
+.btn-primary {
+  background-color: var(--nordic-primary);
+  background-image: none;
+  color: var(--nordic-primary-ink);
+  border: 1px solid var(--nordic-primary);
+  border-radius: 7px;
+  font-weight: 600;
+  min-height: 36px;
+  padding: 0 14px;
+  box-shadow: none;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--nordic-primary-hover);
+  border-color: var(--nordic-primary-hover);
+}
+
+.btn-secondary,
+.file-label {
+  background-color: var(--nordic-surface);
+  background-image: none;
+  color: var(--nordic-ink);
+  border: 1px solid var(--nordic-border);
+  border-radius: 7px;
+  font-weight: 500;
+  min-height: 36px;
+  padding: 0 12px;
+  box-shadow: none;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.btn-secondary:hover,
+.file-label:hover {
+  background-color: var(--nordic-sunken);
+  border-color: var(--nordic-primary);
+}
+
+.btn-icon {
+  min-width: 36px;
+  padding: 0 10px;
+  font-weight: 600;
+}
+
+.btn-danger {
+  background-color: var(--nordic-danger-bg);
+  color: var(--nordic-danger);
+  border: 1px solid color-mix(in srgb, var(--nordic-danger) 35%, transparent);
+  border-radius: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  font-weight: 600;
+}
+
+.btn-danger:hover {
+  background-color: var(--nordic-danger);
+  color: #FFFFFF;
+}
+
+.btn-link {
+  background: transparent;
+  border: none;
+  color: var(--nordic-primary);
+  padding: 2px 6px;
+  font-weight: 600;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+/* Controles segmentados (Modo y Tema) sin colisiones */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--nordic-sunken);
+  border: 1px solid var(--nordic-border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented-control button {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--nordic-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 5px 10px;
+  min-height: 28px;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.segmented-control button:hover {
+  color: var(--nordic-ink);
+}
+
+.segmented-control button.active {
+  background-color: var(--nordic-surface);
+  color: var(--nordic-ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Etiquetas de rango óptimo en gráfico */
+.z-opt {
+  background-color: var(--nordic-optimal-bg);
+  color: var(--nordic-optimal);
+  border: 1px solid color-mix(in srgb, var(--nordic-optimal) 35%, transparent);
+}
+
+/* Tablas limpias */
+.data-table th,
+.mini-table th {
+  color: var(--nordic-muted);
+  border-bottom: 1px solid var(--nordic-border);
+}
+
+.data-table td,
+.mini-table td {
+  border-bottom: 1px solid color-mix(in srgb, var(--nordic-border) 60%, transparent);
+}
+
+@media (max-width: 768px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .profile-bar,
+  .topbar-actions {
+    justify-content: space-between;
+  }
+  .segmented-control {
+    flex: 1;
+    justify-content: center;
+  }
+  .segmented-control button {
+    flex: 1;
+    text-align: center;
+  }
 }

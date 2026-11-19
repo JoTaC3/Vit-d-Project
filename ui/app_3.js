@@ -2928,7 +2928,7 @@ function calculate() {
    16. ACTUALIZACIÓN AUTOMÁTICA VÍA GITHUB RELEASES (PC + ANDROID)
    ========================================================================== */
 
-const APP_CURRENT_VERSION = "0.3.0";
+const APP_CURRENT_VERSION = "0.3.1";
 const GITHUB_REPO_SLUG = "JoTaC3/Vit-d-Project";
 
 function compareSemver(a, b) {
@@ -3050,54 +3050,66 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// --- CONTROLADOR DE TEMAS v0.3.0 (AUTOMÁTICO Y MANUAL) ---
-function setAppTheme(theme) {
+
+
+// === CRONOBIOLOGIA NORDICA THEME CONTROLLER ===
+function setAppTheme(mode) {
   const root = document.documentElement;
   const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  localStorage.setItem("app-theme", theme);
+  localStorage.setItem("app-theme-mode", mode);
 
-  ["light", "dark", "auto"].forEach(t => {
-    const btn = document.getElementById(`theme-btn-${t}`);
-    if (btn) btn.classList.remove("active");
+  ["Light", "Dark", "Auto"].forEach((label) => {
+    const btn = document.getElementById(`btnTheme${label}`);
+    if (btn) btn.classList.toggle("active", label.toLowerCase() === mode);
   });
 
-  const activeBtn = document.getElementById(`theme-btn-${theme}`);
-  if (activeBtn) activeBtn.classList.add("active");
-
-  const applyTheme = (t) => {
-    root.setAttribute("data-theme", t);
+  const applyResolvedTheme = (resolved) => {
+    root.setAttribute("data-theme", resolved);
     if (typeof Chart !== "undefined" && Chart.instances) {
-      Object.values(Chart.instances).forEach(chart => {
-        const textColor = t === "dark" ? "#9E978B" : "#5C584F";
-        const gridColor = t === "dark" ? "#2D2A25" : "#E2DDD2";
-        if (chart.options.scales) {
-          if (chart.options.scales.x) {
-            chart.options.scales.x.ticks.color = textColor;
-            chart.options.scales.x.grid.color = gridColor;
-          }
-          if (chart.options.scales.y) {
-            chart.options.scales.y.ticks.color = textColor;
-            chart.options.scales.y.grid.color = gridColor;
-          }
+      const textColor = resolved === "dark" ? "#8FA0B2" : "#52606D";
+      const gridColor = resolved === "dark" ? "#26303D" : "#CFD7E0";
+      const curveColor = resolved === "dark" ? "#5B9BD5" : "#255C99";
+
+      Object.values(Chart.instances).forEach((chart) => {
+        if (chart.options?.scales?.x) {
+          chart.options.scales.x.ticks.color = textColor;
+          chart.options.scales.x.grid.color = gridColor;
+        }
+        if (chart.options?.scales?.y) {
+          chart.options.scales.y.ticks.color = textColor;
+          chart.options.scales.y.grid.color = gridColor;
+        }
+        if (chart.options?.plugins?.legend?.labels) {
+          chart.options.plugins.legend.labels.color = textColor;
+        }
+        if (chart.canvas?.id === "bloodChart" && chart.data?.datasets?.[0]) {
+          chart.data.datasets[0].borderColor = curveColor;
         }
         chart.update("none");
       });
     }
   };
 
-  if (theme === "auto") {
-    applyTheme(darkQuery.matches ? "dark" : "light");
+  if (mode === "auto") {
+    applyResolvedTheme(darkQuery.matches ? "dark" : "light");
     darkQuery.onchange = (e) => {
-      if (localStorage.getItem("app-theme") === "auto") {
-        applyTheme(e.matches ? "dark" : "light");
+      if (localStorage.getItem("app-theme-mode") === "auto") {
+        applyResolvedTheme(e.matches ? "dark" : "light");
       }
     };
   } else {
-    applyTheme(theme);
+    applyResolvedTheme(mode);
     darkQuery.onchange = null;
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  setAppTheme(localStorage.getItem("app-theme") || "auto");
+window.setTheme = function (legacyTheme) {
+  if (legacyTheme === "clinical") return setAppTheme("light");
+  if (legacyTheme === "dark" || legacyTheme === "warm") return setAppTheme("dark");
+  return setAppTheme("auto");
+};
+
+window.addEventListener("load", () => {
+  const savedMode = localStorage.getItem("app-theme-mode") || "auto";
+  setAppTheme(savedMode);
 });

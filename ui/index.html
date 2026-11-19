@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -8,11 +8,6 @@
   <script src="chart.umd.min.js"></script>
 </head>
 <body>
-    <div class="theme-selector" id="themeSelectorContainer" style="position: fixed; top: 12px; right: 12px; z-index: 9999;">
-      <button type="button" onclick="setAppTheme('light')" id="theme-btn-light">Claro</button>
-      <button type="button" onclick="setAppTheme('dark')" id="theme-btn-dark">Oscuro</button>
-      <button type="button" onclick="setAppTheme('auto')" id="theme-btn-auto">Auto</button>
-    </div>
   <!-- BARRA SUPERIOR -->
   <header class="topbar">
     <div class="brand">
@@ -40,9 +35,9 @@
         <button type="button" id="btnModeDaily" onclick="setMode('daily')">Fases Diarias</button>
       </div>
       <div class="segmented-control" role="group" aria-label="Tema visual">
-        <button type="button" id="btnThemeDark" class="active" onclick="setTheme('dark')">Oscuro</button>
-        <button type="button" id="btnThemeClinical" onclick="setTheme('clinical')">Clínico</button>
-        <button type="button" id="btnThemeWarm" onclick="setTheme('warm')">Cálido</button>
+        <button type="button" id="btnThemeLight" onclick="setAppTheme('light')">Día</button>
+        <button type="button" id="btnThemeDark" onclick="setAppTheme('dark')">Noche</button>
+        <button type="button" id="btnThemeAuto" class="active" onclick="setAppTheme('auto')">Auto</button>
       </div>
     </div>
   </header>
@@ -154,7 +149,7 @@
             <div class="inline-form">
               <input type="number" id="customWeek" step="0.5" min="0" placeholder="Semana" aria-label="Semana de dosis libre" />
               <input type="number" id="customIU" step="1000" min="0" placeholder="Dosis en UI" aria-label="Dosis libre en UI" />
-              <button type="button" class="btn-secondary" onclick="addCustomDose()" title="Agregar dosis libre">+</button>
+              <button type="button" class="btn-secondary btn-icon" onclick="addCustomDose()" title="Agregar dosis libre">+</button>
             </div>
             <table class="mini-table">
               <thead><tr><th>Sem</th><th>Dosis</th><th></th></tr></thead>
@@ -169,7 +164,7 @@
             <input type="number" id="dailyStart" step="0.5" min="0" placeholder="Sem. inicio" aria-label="Semana de inicio de fase" />
             <input type="number" id="dailyEnd" step="0.5" min="0" placeholder="Sem. fin" aria-label="Semana de fin de fase" />
             <input type="number" id="dailyIU" step="200" min="0" placeholder="UI por día" aria-label="Dosis diaria en UI" />
-            <button type="button" class="btn-secondary" onclick="addDailyPhase()" title="Agregar fase diaria">+</button>
+            <button type="button" class="btn-secondary btn-icon" onclick="addDailyPhase()" title="Agregar fase diaria">+</button>
           </div>
           <table class="mini-table">
             <thead><tr><th>Fase</th><th>Semanas</th><th>Dosis</th><th></th></tr></thead>
@@ -202,7 +197,7 @@
         <div class="inline-form" style="margin-top:6px;">
           <input type="number" id="hydroDay" step="1" min="0" placeholder="Día de toma (0 = hoy)" aria-label="Día de administración" />
           <input type="text" id="hydroNote" placeholder="Nota o etiqueta (opc.)" aria-label="Nota opcional" />
-          <button type="button" class="btn-secondary" onclick="addHydroferolDose()" title="Agregar Hidroferol">+</button>
+          <button type="button" class="btn-secondary btn-icon" onclick="addHydroferolDose()" title="Agregar Hidroferol">+</button>
         </div>
         <table class="mini-table">
           <thead><tr><th>Momento</th><th>Magnitud</th><th>Nota</th><th></th></tr></thead>
@@ -219,7 +214,7 @@
           <input type="number" id="bodyWeek" step="0.5" min="0" placeholder="Semana" aria-label="Semana del registro corporal" />
           <input type="number" id="bodyWeight" step="0.1" min="1" placeholder="Peso (kg)" aria-label="Peso en kg" />
           <input type="number" id="bodyFat" step="0.1" min="0" max="75" placeholder="% Grasa (opc.)" aria-label="Porcentaje de grasa opcional" />
-          <button type="button" class="btn-secondary" onclick="addBodyPoint()" title="Agregar punto corporal">+</button>
+          <button type="button" class="btn-secondary btn-icon" onclick="addBodyPoint()" title="Agregar punto corporal">+</button>
         </div>
         <table class="mini-table">
           <thead><tr><th>Sem</th><th>Peso</th><th>Grasa</th><th></th></tr></thead>
@@ -237,7 +232,7 @@
           <div class="inline-form">
             <input type="number" id="bloodWeek" step="0.5" min="0" placeholder="Semana analítica" aria-label="Semana de analítica" />
             <input type="number" id="bloodLevel" step="0.1" min="0" placeholder="Resultado ng/mL" aria-label="Nivel sérico en ng/mL" />
-            <button type="button" class="btn-secondary" onclick="addBloodPoint()" title="Agregar medición sérica">+</button>
+            <button type="button" class="btn-secondary btn-icon" onclick="addBloodPoint()" title="Agregar medición sérica">+</button>
           </div>
           <table class="mini-table">
             <thead><tr><th>Semana</th><th>25(OH)D Real</th><th></th></tr></thead>
@@ -297,7 +292,7 @@
         <div class="kpi-card">
           <span class="kpi-title">Umbral Suficiencia (30 ng/mL)</span>
           <strong id="statWeek30" class="kpi-value">--</strong>
-          <span class="kpi-sub">Tiempo de alcance</span>
+          <span id="statWeek30Sub" class="kpi-sub">Tiempo de alcance</span>
         </div>
       </section>
 
@@ -350,9 +345,7 @@
     </main>
   </div>
 
-  <!-- ========================================================================
-       MODAL: ADMINISTRADOR DE PERFILES, SEGUIMIENTO Y PLANIFICADOR POR OBJETIVO
-       ======================================================================== -->
+  <!-- MODAL: ADMINISTRADOR DE PERFILES -->
   <div id="profileManagerModal" class="modal-backdrop hidden" onclick="handleModalBackdropClick(event)">
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
       <div class="modal-header">
@@ -363,7 +356,6 @@
         <button type="button" class="btn-close-modal" onclick="closeProfileManager()" title="Cerrar">×</button>
       </div>
 
-      <!-- BARRA SUPERIOR DE GESTIÓN DE PERFILES -->
       <div class="profile-crud-bar">
         <div class="profile-switch-box">
           <div class="section-mini-title">Perfil Activo</div>
@@ -398,7 +390,6 @@
         </div>
       </div>
 
-      <!-- PESTAÑAS DEL PERFIL -->
       <nav class="profile-tabs" role="tablist">
         <button type="button" id="tabBtnProfileBody" class="tab-btn active" onclick="switchProfileTab('body')">
           1. Datos y Composición Corporal
@@ -411,7 +402,6 @@
         </button>
       </nav>
 
-      <!-- PESTAÑA 1: DATOS Y COMPOSICIÓN CORPORAL -->
       <div id="tabPaneProfileBody" class="tab-pane">
         <div class="two-col-pane">
           <div class="pane-card">
@@ -438,7 +428,6 @@
             <div class="btn-row" style="margin-top:12px;">
               <button type="button" class="btn-primary" onclick="saveActiveProfileDetails()">Guardar Cambios en Perfil</button>
             </div>
-
             <div id="profileCompSummary" class="comp-summary-grid"></div>
           </div>
 
@@ -480,7 +469,6 @@
         </div>
       </div>
 
-      <!-- PESTAÑA 2: SEGUIMIENTO DE VITAMINA D -->
       <div id="tabPaneProfileTracking" class="tab-pane hidden">
         <div class="tracking-hero">
           <div class="tracking-metric-card">
@@ -503,11 +491,9 @@
             <small class="small-desc">Rango óptimo habitual: 40–60 ng/mL.</small>
           </div>
         </div>
-
         <div id="trackingRecommendationsBox" class="recommendations-grid"></div>
       </div>
 
-      <!-- PESTAÑA 3: PLANIFICADOR POR OBJETIVO Y SEMANAS -->
       <div id="tabPaneProfilePlanner" class="tab-pane hidden">
         <div class="planner-controls-card">
           <div class="planner-inputs-grid">
@@ -533,11 +519,7 @@
             </div>
           </div>
         </div>
-
-        <!-- ALERTAS DE TOXICIDAD, PLAZO CORTO Y VITAMINA K2 -->
         <div id="plannerAlertsContainer" class="safety-stack"></div>
-
-        <!-- TARJETAS DE PLANES GENERADOS -->
         <div id="plannerCardsContainer" class="plans-grid"></div>
       </div>
     </div>
