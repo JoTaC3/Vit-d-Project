@@ -158,7 +158,20 @@ function renameProfile(profileId) {
     showToast("Perfil renombrado");
   }
 }
+async function checkDesktopUpdate() {
+  const invoke = window.__TAURI__?.core?.invoke;
+  if (!invoke) return;
 
+  try {
+    const info = await invoke("check_and_install_update", { install: false });
+    if (info && info.available) {
+      showToast(`Nueva versión v${info.version} detectada. Descargando e instalando...`);
+      await invoke("check_and_install_update", { install: true });
+    }
+  } catch (err) {
+    console.warn("Error comprobando actualización:", err);
+  }
+}
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   initializeProfiles();
@@ -166,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
   syncUIWithState();
   runSimulationAndRender();
   renderMemoriesList();
-
+checkDesktopUpdate();
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab));
   });
