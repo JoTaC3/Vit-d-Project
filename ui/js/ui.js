@@ -46,7 +46,9 @@ export function showToast(message) {
 
 export function switchTab(tabName) {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.tab === tabName);
+    const isMatch = btn.dataset.tab === tabName;
+    btn.classList.toggle("active", isMatch);
+    btn.setAttribute("aria-selected", String(isMatch));
   });
   document.querySelectorAll(".tab-content").forEach((sec) => {
     sec.classList.toggle("active", sec.id === `tab-${tabName}`);
@@ -81,27 +83,27 @@ function updateKPIs(traj, initialParams, totalWeeks) {
   $id("kpiStartStatus").textContent = classifyVitaminDStatus(startNg).label;
 
   $id("kpiPeak").textContent = formatLevel(peakNg, 1);
-  $id("kpiPeakWeek").textContent = `Alcanzado en semana ${peakWeek.toFixed(1)}`;
+  $id("kpiPeakWeek").textContent = `Semana ${peakWeek.toFixed(1)}`;
 
   $id("kpiEndWeekNum").textContent = totalWeeks;
   $id("kpiEnd").textContent = formatLevel(endNg, 1);
   const endStatus = classifyVitaminDStatus(endNg);
   $id("kpiEndStatus").textContent = endStatus.label;
 
-  $id("kpiDailyAvg").textContent = `${Math.round(avgDailyIU)} UI/d`;
+  $id("kpiDailyAvg").textContent = `${Math.round(avgDailyIU).toLocaleString()} UI/d`;
   $id("kpiVdInfo").textContent = `Vd: ${initialParams.effectiveVolume.toFixed(1)} L • IMC: ${initialParams.bmi.toFixed(1)}`;
 
   const banner = $id("safetyBanner");
   if (banner) {
-    banner.className = `alert-banner ${endStatus.tone}`;
+    banner.className = `status-banner ${endStatus.tone}`;
     if (peakNg > 100) {
-      banner.innerHTML = `<strong>⚠️ Alerta de Seguridad:</strong> El pico proyectado (${formatLevel(peakNg, 1)}) supera el umbral seguro de ${formatLevel(100, 0)}. Reduce la dosis o acorta la fase de carga.`;
+      banner.innerHTML = `<strong>Alerta de Seguridad:</strong> El pico proyectado (${formatLevel(peakNg, 1)}) supera el umbral de ${formatLevel(100, 0)}. Reduce la dosis o acorta la fase de carga.`;
     } else if (endNg >= 30 && endNg <= 60) {
-      banner.innerHTML = `<strong>✅ Protocolo Equilibrado:</strong> Al finalizar la semana ${totalWeeks}, tus niveles proyectados (${formatLevel(endNg, 1)}) se mantienen dentro del rango fisiológico óptimo (${formatLevel(30, 0)} – ${formatLevel(60, 0)}).`;
+      banner.innerHTML = `<strong>Protocolo Equilibrado:</strong> Al cierre de la semana ${totalWeeks}, la concentración proyectada (${formatLevel(endNg, 1)}) permanece dentro del rango óptimo (${formatLevel(30, 0)} – ${formatLevel(60, 0)}).`;
     } else if (endNg < 30) {
-      banner.innerHTML = `<strong>ℹ️ Nivel Subóptimo:</strong> El esquema actual proyecta ${formatLevel(endNg, 1)} al final del periodo. Considera usar el Planificador de Objetivo para ajustar la dosis.`;
+      banner.innerHTML = `<strong>Nivel Subóptimo:</strong> El esquema actual proyecta ${formatLevel(endNg, 1)} al final del periodo. Usa el Planificador Inverso para ajustar la dosis.`;
     } else {
-      banner.innerHTML = `<strong>⚠️ Nivel Alto:</strong> Proyección final en ${formatLevel(endNg, 1)}. Se recomienda control sérico y de calcio si se mantiene a largo plazo.`;
+      banner.innerHTML = `<strong>Nivel Alto:</strong> Proyección final en ${formatLevel(endNg, 1)}. Se sugiere control sérico y calcemia si se sostiene a largo plazo.`;
     }
   }
 }
@@ -133,11 +135,12 @@ export function renderExamsTable() {
   const sorted = [...store.appState.bloodMeasurements].sort((a, b) => a.week - b.week);
   sorted.forEach((exam) => {
     const tr = document.createElement("tr");
+    const safeNote = escapeHTML(exam.note || "—");
     tr.innerHTML = `
       <td>${exam.week}</td>
       <td><strong>${toDisplayUnit(exam.valueNg).toFixed(1)}</strong></td>
-      <td>${escapeHTML(exam.note || "-")}</td>
-      <td><button class="btn-del" aria-label="Eliminar examen">&times;</button></td>
+      <td title="${safeNote}">${safeNote}</td>
+      <td><button type="button" class="btn-del" aria-label="Eliminar examen">&times;</button></td>
     `;
     tr.querySelector(".btn-del").addEventListener("click", () => {
       store.appState.bloodMeasurements = store.appState.bloodMeasurements.filter((e) => e.id !== exam.id);
@@ -161,7 +164,7 @@ export function renderAnthroTable() {
       <td>${log.week}</td>
       <td>${log.weight} kg</td>
       <td>${log.bodyFat}%</td>
-      <td><button class="btn-del" aria-label="Eliminar registro">&times;</button></td>
+      <td><button type="button" class="btn-del" aria-label="Eliminar registro">&times;</button></td>
     `;
     tr.querySelector(".btn-del").addEventListener("click", () => {
       store.appState.anthropometryLogs = store.appState.anthropometryLogs.filter((a) => a.id !== log.id);
@@ -179,7 +182,7 @@ export function renderDosesTable() {
   tbody.innerHTML = "";
 
   const freqMap = {
-    daily: "/día",
+    daily: "/d",
     weekly: "/sem",
     biweekly: "/14d",
     monthly: "/mes",
@@ -190,11 +193,12 @@ export function renderDosesTable() {
     const tr = document.createElement("tr");
     const isCalci = d.type === "calcifediol";
     const tramoText = d.freq === "single" ? `Sem ${d.startWeek}` : `${d.startWeek}–${d.endWeek}`;
+    const doseStr = `${d.iu.toLocaleString()} ${freqMap[d.freq] || ""}`;
     tr.innerHTML = `
       <td><span class="badge-pill ${isCalci ? "badge-calci" : "badge-d3"}">${isCalci ? "25OHD" : "D3"}</span></td>
-      <td>${d.iu.toLocaleString()} ${freqMap[d.freq] || ""}</td>
+      <td title="${doseStr}">${doseStr}</td>
       <td>${tramoText}</td>
-      <td><button class="btn-del" aria-label="Eliminar dosis">&times;</button></td>
+      <td><button type="button" class="btn-del" aria-label="Eliminar dosis">&times;</button></td>
     `;
     tr.querySelector(".btn-del").addEventListener("click", () => {
       store.appState.doses = store.appState.doses.filter((item) => item.id !== d.id);
@@ -242,48 +246,48 @@ export function generateTargetPlans() {
   resultsGrid.innerHTML = "";
 
   if (targetLevelNg <= initialLevelNg) {
-    alertBox.className = "alert-banner warning mt-12";
-    alertBox.innerHTML = `El nivel objetivo (${formatLevel(targetLevelNg, 1)}) debe ser mayor al nivel actual (${formatLevel(initialLevelNg, 1)}).`;
+    alertBox.className = "status-banner warning mt-12";
+    alertBox.innerHTML = `El nivel objetivo (${formatLevel(targetLevelNg, 1)}) debe superar el nivel actual (${formatLevel(initialLevelNg, 1)}).`;
     return;
   }
 
   const safeMinWeeks = estimateSafeWeeksRK4(initialLevelNg, targetLevelNg);
 
   if (loadWeeks < safeMinWeeks) {
-    alertBox.className = "alert-banner warning mt-12";
-    alertBox.innerHTML = `<strong>⚠️ Plazo exigente:</strong> Alcanzar ${formatLevel(targetLevelNg, 1)} desde ${formatLevel(initialLevelNg, 1)} en ${loadWeeks} semanas requiere dosis altas. Con un protocolo diario estándar de 4.000 UI/día tomaría ~<strong>${safeMinWeeks} semanas</strong>.`;
+    alertBox.className = "status-banner warning mt-12";
+    alertBox.innerHTML = `<strong>Plazo exigente:</strong> Alcanzar ${formatLevel(targetLevelNg, 1)} desde ${formatLevel(initialLevelNg, 1)} en ${loadWeeks} semanas requiere dosis altas. A 4.000 UI/día estándar tomaría ~<strong>${safeMinWeeks} semanas</strong>.`;
   } else {
-    alertBox.className = "alert-banner success mt-12";
-    alertBox.innerHTML = `<strong>✅ Plazo Fisiológico Adecuado:</strong> ${loadWeeks} semanas permiten una reposición gradual y segura hacia ${formatLevel(targetLevelNg, 1)}.`;
+    alertBox.className = "status-banner success mt-12";
+    alertBox.innerHTML = `<strong>Plazo Fisiológico Adecuado:</strong> ${loadWeeks} semanas permiten una reposición gradual hacia ${formatLevel(targetLevelNg, 1)}.`;
   }
 
   const strategies = [
     {
       title: "Estrategia 1: D3 Diaria Fisiológica",
-      tag: "Más Estable • Recomendada",
+      tag: "MÁS ESTABLE • RECOMENDADA",
       recommended: true,
       freq: "daily",
       doseType: "d3",
       freqLabel: "diarios",
-      desc: "Absorción constante sin picos enzimáticos ni saturación de hidroxilasas."
+      desc: "Absorción continua sin saturar la hidroxilación hepática CYP2R1."
     },
     {
       title: "Estrategia 2: D3 Bolo Semanal",
-      tag: "Alta Adherencia",
+      tag: "ALTA ADHERENCIA",
       recommended: false,
       freq: "weekly",
       doseType: "d3",
       freqLabel: "semanales",
-      desc: "Una toma cada 7 días. Ideal si prefieres evitar cápsulas diarias."
+      desc: "Una toma cada 7 días para simplificar adherencia a largo plazo."
     },
     {
       title: "Estrategia 3: Calcifediol 25(OH)D3",
-      tag: "Acción Rápida (~3.2×)",
+      tag: "ACCIÓN RÁPIDA (3.15×)",
       recommended: false,
       freq: "weekly",
       doseType: "calcifediol",
       freqLabel: "semanales (equiv. UI)",
-      desc: "Omite el paso hepático y el secuestro adiposo; eleva niveles más rápido en IMC alto."
+      desc: "Ingresa directo al compartimento sérico omitiendo el secuestro adiposo inicial."
     }
   ];
 
@@ -305,13 +309,13 @@ export function generateTargetPlans() {
         <h3>${strat.title}</h3>
         <p class="hint">${strat.desc}</p>
         <div class="strategy-metrics">
-          <div><strong>Fase Carga (Sem 0–${loadWeeks}):</strong> ${solved.loadIU.toLocaleString()} UI ${strat.freqLabel}</div>
-          ${maintWeeks > 0 ? `<div><strong>Mantenimiento (Sem ${loadWeeks}–${loadWeeks + maintWeeks}):</strong> ${solved.maintIU.toLocaleString()} UI D3/día</div>` : ""}
-          <div><strong>Pico estimado:</strong> ${formatLevel(solved.peakNg, 1)}</div>
-          <div><strong>Nivel final proyectado:</strong> ${formatLevel(solved.endNg, 1)}</div>
+          <div><strong>Carga (Sem 0–${loadWeeks}):</strong> ${solved.loadIU.toLocaleString()} UI ${strat.freqLabel}</div>
+          ${maintWeeks > 0 ? `<div><strong>Mantención (Sem ${loadWeeks}–${loadWeeks + maintWeeks}):</strong> ${solved.maintIU.toLocaleString()} UI D3/día</div>` : ""}
+          <div><strong>Pico máximo:</strong> ${formatLevel(solved.peakNg, 1)}</div>
+          <div><strong>Cierre proyectado:</strong> ${formatLevel(solved.endNg, 1)}</div>
         </div>
       </div>
-      <button class="btn-primary full-width apply-plan-btn">Aplicar en Simulador</button>
+      <button type="button" class="btn-helio full-width apply-plan-btn">Aplicar en Simulador</button>
     `;
 
     card.querySelector(".apply-plan-btn").addEventListener("click", () => {
@@ -342,7 +346,7 @@ export function generateTargetPlans() {
       renderDosesTable();
       runSimulationAndRender();
       switchTab("simulador");
-      showToast(`Protocolo "${strat.title}" aplicado al simulador`);
+      showToast(`Protocolo "${strat.title}" aplicado`);
     });
 
     resultsGrid.appendChild(card);
@@ -376,7 +380,7 @@ export function renderMemoriesList() {
   grid.innerHTML = "";
 
   if (store.savedSimulations.length === 0) {
-    grid.innerHTML = `<p class="hint">No hay simulaciones guardadas en este perfil todavía. Usa el botón "💾 Guardar en Memoria" sobre el gráfico principal.</p>`;
+    grid.innerHTML = `<p class="hint">No hay simulaciones guardadas en este perfil todavía. Usa "Guardar Memoria" sobre el gráfico principal.</p>`;
     return;
   }
 
@@ -397,8 +401,8 @@ export function renderMemoriesList() {
         <p class="hint mt-8">${snap.doses.length} tramo(s) de dosis • ${snap.bloodMeasurements.length} examen(es)</p>
       </div>
       <div class="memory-actions">
-        <button class="btn-primary small load-mem-btn">Cargar</button>
-        <button class="btn-secondary small del-mem-btn">🗑️</button>
+        <button type="button" class="btn-helio btn-sm load-mem-btn">Cargar Escenario</button>
+        <button type="button" class="btn-danger-ghost btn-sm del-mem-btn" aria-label="Eliminar memoria">Eliminar</button>
       </div>
     `;
 
@@ -408,7 +412,7 @@ export function renderMemoriesList() {
       syncUIWithState();
       runSimulationAndRender();
       switchTab("simulador");
-      showToast(`Simulación "${item.title}" restaurada`);
+      showToast(`Escenario "${item.title}" restaurado`);
     });
 
     card.querySelector(".del-mem-btn").addEventListener("click", () => {
@@ -424,7 +428,7 @@ export function renderMemoriesList() {
 
 export async function exportMemoriesJSON() {
   const payload = {
-    app: "Vitamina D Simulator v0.3.4",
+    app: "Vitamina D Simulator v0.3.5",
     exportedAt: new Date().toISOString(),
     profilesStore: store.profilesStore
   };
@@ -439,20 +443,27 @@ export async function exportMemoriesJSON() {
         return;
       }
     } catch (_) {
-      // Fallback a descarga directa
+      // Fallback a descarga directa en escritorio o WebView
     }
   }
 
-  const blob = new Blob([jsonString], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  showToast("Respaldo JSON descargado");
+  try {
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast("Respaldo JSON exportado");
+  } catch (_) {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(jsonString);
+      showToast("JSON copiado al portapapeles");
+    }
+  }
 }
 
 export function importMemoriesJSON(file) {
@@ -480,9 +491,9 @@ export function importMemoriesJSON(file) {
         runSimulationAndRender();
         renderMemoriesList();
         renderProfileSelector();
-        showToast("Perfiles y memorias importados correctamente");
+        showToast("Perfiles y memorias importados");
       } else {
-        showToast("Archivo JSON sin estructura válida de perfiles");
+        showToast("Archivo JSON sin estructura válida");
       }
     } catch (_) {
       showToast("Error al leer el archivo JSON");
@@ -516,13 +527,13 @@ export function renderProfilesModalList(onActivate, onRename, onDelete) {
     item.className = `profile-item ${isActive ? "active-profile" : ""}`;
     item.innerHTML = `
       <div class="profile-item-info">
-        <strong>${escapeHTML(p.name)} ${isActive ? "• (Activo)" : ""}</strong>
+        <strong>${escapeHTML(p.name)} ${isActive ? "• Activo" : ""}</strong>
         <span>${bp.weight || "--"} kg • ${bp.bodyFat || "--"}% grasa • ${(p.savedSimulations || []).length} memorias</span>
       </div>
       <div class="profile-item-btns">
-        ${!isActive ? `<button class="btn-primary small" data-action="activate" data-id="${p.id}">Activar</button>` : ""}
-        <button class="btn-secondary small" data-action="rename" data-id="${p.id}" title="Renombrar">✏️</button>
-        ${store.profilesStore.profiles.length > 1 ? `<button class="btn-secondary small" data-action="delete" data-id="${p.id}" title="Eliminar">🗑️</button>` : ""}
+        ${!isActive ? `<button type="button" class="btn-helio btn-sm" data-action="activate" data-id="${p.id}">Activar</button>` : ""}
+        <button type="button" class="btn-instrument btn-sm" data-action="rename" data-id="${p.id}">Renombrar</button>
+        ${store.profilesStore.profiles.length > 1 ? `<button type="button" class="btn-danger-ghost btn-sm" data-action="delete" data-id="${p.id}">Borrar</button>` : ""}
       </div>
     `;
     container.appendChild(item);

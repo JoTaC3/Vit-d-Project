@@ -31,10 +31,14 @@ import {
   renderProfileSelector,
   renderProfilesModalList
 } from "./ui.js";
+import { setInspectedWeek, adjustChartZoom, toggleChartLayer } from "./charts.js";
 
 function $id(id) {
   return document.getElementById(id);
 }
+
+const SUN_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
+const MOON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
 
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
@@ -42,14 +46,19 @@ function applyTheme(theme) {
   const icon = $id("themeIcon");
   const text = $id("themeText");
   if (icon && text) {
-    icon.textContent = theme === "dark" ? "☀️" : "🌙";
+    icon.innerHTML = theme === "dark" ? SUN_SVG : MOON_SVG;
     text.textContent = theme === "dark" ? "Claro" : "Oscuro";
   }
 }
 
 function initTheme() {
-  const saved = localStorage.getItem(STORAGE_KEY_THEME) || "light";
-  applyTheme(saved);
+  const saved = localStorage.getItem(STORAGE_KEY_THEME);
+  if (saved === "dark" || saved === "light") {
+    applyTheme(saved);
+    return;
+  }
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(prefersDark ? "dark" : "light");
 }
 
 function openProfileManager() {
@@ -204,6 +213,28 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  /* Interactive Chart Controls */
+  $id("chartScrubber")?.addEventListener("input", (e) => {
+    setInspectedWeek(Number(e.target.value), true);
+  });
+
+  $id("zoomInBtn")?.addEventListener("click", () => adjustChartZoom("in", store.appState.bodyProfile.simWeeks));
+  $id("zoomOutBtn")?.addEventListener("click", () => adjustChartZoom("out", store.appState.bodyProfile.simWeeks));
+  $id("resetZoomBtn")?.addEventListener("click", () => adjustChartZoom("reset", store.appState.bodyProfile.simWeeks));
+
+  [
+    ["toggleZonesBtn", "zones"],
+    ["toggleBandBtn", "band"],
+    ["toggleDosesBtn", "doses"]
+  ].forEach(([btnId, layerKey]) => {
+    const btn = $id(btnId);
+    btn?.addEventListener("click", () => {
+      const active = toggleChartLayer(layerKey);
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    });
+  });
+
   const profileInputs = ["sex", "age", "height", "weight", "bodyFat", "skinTone", "sunExposure", "simWeeks"];
   profileInputs.forEach((id) => {
     $id(id)?.addEventListener("input", () => {
@@ -249,7 +280,7 @@ document.addEventListener("DOMContentLoaded", () => {
     autoSaveCurrentState();
     renderAnthroTable();
     runSimulationAndRender();
-    showToast("Evolución antropométrica registrada");
+    showToast("Control antropométrico registrado");
   });
 
   $id("addDoseBtn")?.addEventListener("click", () => {
