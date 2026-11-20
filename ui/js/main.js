@@ -31,7 +31,7 @@ import {
   renderProfileSelector,
   renderProfilesModalList
 } from "./ui.js";
-import { setInspectedWeek, adjustChartZoom, toggleChartLayer } from "./charts.js";
+import * as chartsMod from "./charts.js";
 
 function $id(id) {
   return document.getElementById(id);
@@ -61,6 +61,14 @@ function initTheme() {
   applyTheme(prefersDark ? "dark" : "light");
 }
 
+function safeRenderAll() {
+  try {
+    runSimulationAndRender();
+  } catch (err) {
+    console.error("Error al renderizar simulación/gráficos:", err);
+  }
+}
+
 function openProfileManager() {
   renderProfilesModalList(
     (id) => {
@@ -88,7 +96,7 @@ function switchProfile(profileId) {
 
   persistProfilesStore();
   syncUIWithState();
-  runSimulationAndRender();
+  safeRenderAll();
   renderMemoriesList();
   renderProfileSelector();
   showToast(`Perfil cargado: ${target.name}`);
@@ -117,7 +125,7 @@ function createNewProfile(name) {
 
   persistProfilesStore();
   syncUIWithState();
-  runSimulationAndRender();
+  safeRenderAll();
   renderMemoriesList();
   renderProfileSelector();
   openProfileManager();
@@ -138,7 +146,7 @@ function deleteProfile(profileId) {
   }
   persistProfilesStore();
   syncUIWithState();
-  runSimulationAndRender();
+  safeRenderAll();
   renderMemoriesList();
   renderProfileSelector();
   openProfileManager();
@@ -158,6 +166,7 @@ function renameProfile(profileId) {
     showToast("Perfil renombrado");
   }
 }
+
 async function checkDesktopUpdate() {
   const invoke = window.__TAURI__?.core?.invoke;
   if (!invoke) return;
@@ -172,14 +181,8 @@ async function checkDesktopUpdate() {
     console.warn("Error comprobando actualización:", err);
   }
 }
-document.addEventListener("DOMContentLoaded", () => {
-  initTheme();
-  initializeProfiles();
-  renderProfileSelector();
-  syncUIWithState();
-  runSimulationAndRender();
-  renderMemoriesList();
-checkDesktopUpdate();
+
+function bindUIEvents() {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab));
   });
@@ -187,7 +190,7 @@ checkDesktopUpdate();
   $id("themeToggle")?.addEventListener("click", () => {
     const current = document.documentElement.getAttribute("data-theme");
     applyTheme(current === "dark" ? "light" : "dark");
-    runSimulationAndRender();
+    safeRenderAll();
   });
 
   document.querySelectorAll("#unitToggle button").forEach((btn) => {
@@ -197,7 +200,7 @@ checkDesktopUpdate();
       store.appState.unit = nextUnit;
       autoSaveCurrentState();
       syncUIWithState();
-      runSimulationAndRender();
+      safeRenderAll();
     });
   });
 
@@ -209,6 +212,7 @@ checkDesktopUpdate();
   });
   $id("createProfileBtn")?.addEventListener("click", () => {
     const input = $id("newProfileNameInput");
+    if (!input) return;
     createNewProfile(input.value);
     input.value = "";
   });
@@ -226,14 +230,19 @@ checkDesktopUpdate();
     }
   });
 
-  /* Interactive Chart Controls */
   $id("chartScrubber")?.addEventListener("input", (e) => {
-    setInspectedWeek(Number(e.target.value), true);
+    chartsMod.setInspectedWeek?.(Number(e.target.value), true);
   });
 
-  $id("zoomInBtn")?.addEventListener("click", () => adjustChartZoom("in", store.appState.bodyProfile.simWeeks));
-  $id("zoomOutBtn")?.addEventListener("click", () => adjustChartZoom("out", store.appState.bodyProfile.simWeeks));
-  $id("resetZoomBtn")?.addEventListener("click", () => adjustChartZoom("reset", store.appState.bodyProfile.simWeeks));
+  $id("zoomInBtn")?.addEventListener("click", () => {
+    chartsMod.adjustChartZoom?.("in", store.appState.bodyProfile.simWeeks);
+  });
+  $id("zoomOutBtn")?.addEventListener("click", () => {
+    chartsMod.adjustChartZoom?.("out", store.appState.bodyProfile.simWeeks);
+  });
+  $id("resetZoomBtn")?.addEventListener("click", () => {
+    chartsMod.adjustChartZoom?.("reset", store.appState.bodyProfile.simWeeks);
+  });
 
   [
     ["toggleZonesBtn", "zones"],
@@ -242,7 +251,8 @@ checkDesktopUpdate();
   ].forEach(([btnId, layerKey]) => {
     const btn = $id(btnId);
     btn?.addEventListener("click", () => {
-      const active = toggleChartLayer(layerKey);
+      if (!chartsMod.toggleChartLayer) return;
+      const active = chartsMod.toggleChartLayer(layerKey);
       btn.classList.toggle("active", active);
       btn.setAttribute("aria-pressed", String(active));
     });
@@ -252,56 +262,56 @@ checkDesktopUpdate();
   profileInputs.forEach((id) => {
     $id(id)?.addEventListener("input", () => {
       const bp = store.appState.bodyProfile;
-      bp.sex = $id("sex").value;
-      bp.age = clampNum($id("age").value, 15, 100, 22);
-      bp.height = clampNum($id("height").value, 120, 230, 180);
-      bp.weight = clampNum($id("weight").value, 35, 250, 110);
-      bp.bodyFat = clampNum($id("bodyFat").value, 4, 65, 32);
-      bp.skinTone = clampNum($id("skinTone").value, 0.5, 1.5, 1.0);
-      bp.sunExposure = clampNum($id("sunExposure").value, 0, 10000, 0);
-      bp.simWeeks = clampNum($id("simWeeks").value, 4, 104, 24);
+      if ($id("sex")) bp.sex = $id("sex").value;
+      if ($id("age")) bp.age = clampNum($id("age").value, 15, 100, 22);
+      if ($id("height")) bp.height = clampNum($id("height").value, 120, 230, 180);
+      if ($id("weight")) bp.weight = clampNum($id("weight").value, 35, 250, 110);
+      if ($id("bodyFat")) bp.bodyFat = clampNum($id("bodyFat").value, 4, 65, 32);
+      if ($id("skinTone")) bp.skinTone = clampNum($id("skinTone").value, 0.5, 1.5, 1.0);
+      if ($id("sunExposure")) bp.sunExposure = clampNum($id("sunExposure").value, 0, 10000, 0);
+      if ($id("simWeeks")) bp.simWeeks = clampNum($id("simWeeks").value, 4, 104, 24);
 
       autoSaveCurrentState();
-      runSimulationAndRender();
+      safeRenderAll();
     });
   });
 
   $id("addExamBtn")?.addEventListener("click", () => {
-    const week = clampNum($id("examWeek").value, 0, 104, 0);
-    const rawVal = parseFloat($id("examValue").value);
+    const week = clampNum($id("examWeek")?.value, 0, 104, 0);
+    const rawVal = parseFloat($id("examValue")?.value);
     if (!Number.isFinite(rawVal) || rawVal <= 0) {
       showToast("Ingresa un valor de examen válido");
       return;
     }
     const valueNg = fromDisplayUnit(rawVal);
-    const note = ($id("examNote").value || "").trim();
+    const note = ($id("examNote")?.value || "").trim();
 
     store.appState.bloodMeasurements.push({ id: cryptoId(), week, valueNg, note });
-    $id("examNote").value = "";
+    if ($id("examNote")) $id("examNote").value = "";
     autoSaveCurrentState();
     renderExamsTable();
-    runSimulationAndRender();
+    safeRenderAll();
     showToast("Examen registrado");
   });
 
   $id("addAnthroBtn")?.addEventListener("click", () => {
-    const week = clampNum($id("anthroWeek").value, 0.5, 104, 4);
-    const weight = clampNum($id("anthroWeight").value, 35, 250, 100);
-    const bodyFat = clampNum($id("anthroFat").value, 4, 65, 25);
+    const week = clampNum($id("anthroWeek")?.value, 0.5, 104, 4);
+    const weight = clampNum($id("anthroWeight")?.value, 35, 250, 100);
+    const bodyFat = clampNum($id("anthroFat")?.value, 4, 65, 25);
 
     store.appState.anthropometryLogs.push({ id: cryptoId(), week, weight, bodyFat });
     autoSaveCurrentState();
     renderAnthroTable();
-    runSimulationAndRender();
+    safeRenderAll();
     showToast("Control antropométrico registrado");
   });
 
   $id("addDoseBtn")?.addEventListener("click", () => {
-    const type = $id("doseType").value;
-    const iu = clampNum($id("doseIU").value, 50, 1000000, 2000);
-    const freq = $id("doseFreq").value;
-    const startWeek = clampNum($id("doseStartWeek").value, 0, 104, 0);
-    const endWeek = clampNum($id("doseEndWeek").value, 0.5, 104, 12);
+    const type = $id("doseType")?.value || "d3";
+    const iu = clampNum($id("doseIU")?.value, 50, 1000000, 2000);
+    const freq = $id("doseFreq")?.value || "daily";
+    const startWeek = clampNum($id("doseStartWeek")?.value, 0, 104, 0);
+    const endWeek = clampNum($id("doseEndWeek")?.value, 0.5, 104, 12);
 
     if (freq !== "single" && endWeek <= startWeek) {
       showToast("La semana final debe ser mayor a la inicial");
@@ -311,7 +321,7 @@ checkDesktopUpdate();
     store.appState.doses.push({ id: cryptoId(), type, iu, freq, startWeek, endWeek });
     autoSaveCurrentState();
     renderDosesTable();
-    runSimulationAndRender();
+    safeRenderAll();
     showToast("Tramo de dosis agregado");
   });
 
@@ -319,16 +329,32 @@ checkDesktopUpdate();
     store.appState.doses = [];
     autoSaveCurrentState();
     renderDosesTable();
-    runSimulationAndRender();
+    safeRenderAll();
     showToast("Tramos de dosis eliminados");
   });
 
   $id("calculatePlanBtn")?.addEventListener("click", generateTargetPlans);
-
   $id("saveSimBtn")?.addEventListener("click", saveCurrentSimulationToMemory);
   $id("exportMemoriesBtn")?.addEventListener("click", exportMemoriesJSON);
   $id("importMemoriesInput")?.addEventListener("change", (e) => {
     importMemoriesJSON(e.target.files?.[0]);
     e.target.value = "";
   });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initTheme();
+  bindUIEvents();
+
+  try {
+    initializeProfiles();
+    renderProfileSelector();
+    syncUIWithState();
+    safeRenderAll();
+    renderMemoriesList();
+  } catch (err) {
+    console.error("Error inicializando estado:", err);
+  }
+
+  checkDesktopUpdate();
 });

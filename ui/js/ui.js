@@ -428,7 +428,7 @@ export function renderMemoriesList() {
 
 export async function exportMemoriesJSON() {
   const payload = {
-    app: "Vitamina D Simulator v0.3.6",
+    app: "Vitamina D Simulator v0.3.7",
     exportedAt: new Date().toISOString(),
     profilesStore: store.profilesStore
   };
