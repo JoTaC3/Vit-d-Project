@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128@2x.png" width="84" alt="Vitamina D Simulator" />
+<img src="src-tauri/icons/128x128@2x.png" width="84" alt="Diol" />
 
-# Vitamina D Simulator
+# Diol
 
-Aplicación multiplataforma (**Tauri v2** para Windows x64 y Android ARM64) de simulación farmacocinética compartimental **PopPK (V7)** con calibración Bayesiana MAP e intervalo de predicción IC 90%, para Colecalciferol (**D3**) e Hidroferol (**Calcifediol**), íntegramente offline y sin bundler frontend.
+Diol — Simulador farmacocinético compartimental **PopPK (V7)** multiplataforma (**Tauri v2** para Windows x64 y Android ARM64) con calibración Bayesiana MAP e intervalo de predicción IC 90%, para Colecalciferol (**D3**) e Hidroferol (**Calcifediol**), íntegramente offline y sin bundler frontend.
 
 [![Release](https://img.shields.io/github/v/release/JoTaC3/Vit-d-Project)](https://github.com/JoTaC3/Vit-d-Project/releases/latest)
 [![Build](https://github.com/JoTaC3/Vit-d-Project/actions/workflows/release.yml/badge.svg)](https://github.com/JoTaC3/Vit-d-Project/actions/workflows/release.yml)
@@ -15,13 +15,13 @@ Aplicación multiplataforma (**Tauri v2** para Windows x64 y Android ARM64) de s
 </div>
 
 > [!WARNING]
-> **Aviso clínico:** Vitamina D Simulator es una herramienta educativa y de modelamiento farmacocinético individualizado. Sus proyecciones, bandas de predicción y esquemas sugeridos **no constituyen diagnóstico ni prescripción médica**; cualquier pauta terapéutica o interpretación analítica debe validarse con un profesional de la salud.
+> **Aviso clínico:** Diol es una herramienta educativa y de modelamiento farmacocinético individualizado. Sus proyecciones, bandas de predicción y esquemas sugeridos **no constituyen diagnóstico ni prescripción médica**; cualquier pauta terapéutica o interpretación analítica debe validarse con un profesional de la salud.
 
 ---
 
 ## Descarga e Instalación
 
-Descarga la última versión compilada (**`v0.3.18`**) desde GitHub Releases:  
+Descarga la última versión compilada (**`v0.3.21`**) desde GitHub Releases:  
 **[https://github.com/JoTaC3/Vit-d-Project/releases/latest](https://github.com/JoTaC3/Vit-d-Project/releases/latest)**
 
 - **Windows x64:** instaladores `.msi` y `.exe` (NSIS), con **auto-actualización integrada** (`tauri-plugin-updater` consultando `latest.json` en GitHub Releases).

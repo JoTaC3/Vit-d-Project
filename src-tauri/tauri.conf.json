@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Vitamina D Simulator",
-  "version": "0.3.20",
+  "productName": "Diol",
+  "version": "0.3.21",
   "identifier": "com.jc.vitamindsim",
   "build": {
     "frontendDist": "../ui"
@@ -9,7 +9,7 @@
   "app": {
     "windows": [
       {
-        "title": "Vitamin D Simulator",
+        "title": "Diol",
         "width": 1380,
         "height": 880,
         "resizable": true,

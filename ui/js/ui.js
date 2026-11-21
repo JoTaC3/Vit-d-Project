@@ -626,18 +626,18 @@ export function renderMemoriesList() {
 
 export async function exportMemoriesJSON() {
   const payload = {
-    app: `Vitamina D Simulator v${APP_VERSION}`,
+    app: `Diol v${APP_VERSION}`,
     exportedAt: new Date().toISOString(),
     profilesStore: store.profilesStore
   };
   const jsonString = JSON.stringify(payload, null, 2);
-  const fileName = `vitamina_d_respaldo_${new Date().toISOString().slice(0, 10)}.json`;
+  const fileName = `diol_respaldo_${new Date().toISOString().slice(0, 10)}.json`;
 
   if (navigator.share && navigator.canShare) {
     try {
       const file = new File([jsonString], fileName, { type: "application/json" });
       if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: "Respaldo Vitamina D Simulator" });
+        await navigator.share({ files: [file], title: "Respaldo Diol" });
         return;
       }
     } catch (_) {
