@@ -3,6 +3,7 @@
  */
 
 import {
+  APP_VERSION,
   store,
   cryptoId,
   sanitizeState,
@@ -17,7 +18,7 @@ import {
   getTodayDateString
 } from "./state.js";
 import { solveDoseWithRK4, estimateSafeWeeksRK4, simulateCurrentState } from "./pkEngine.js";
-import { renderCharts } from "./charts.js";
+import { renderCharts, flushChartsIfDirty } from "./charts.js";
 
 function $id(id) {
   return document.getElementById(id);
@@ -55,6 +56,9 @@ export function switchTab(tabName) {
   document.querySelectorAll(".tab-content").forEach((sec) => {
     sec.classList.toggle("active", sec.id === `tab-${tabName}`);
   });
+  if (tabName === "simulador") {
+    flushChartsIfDirty();
+  }
 }
 
 function classifyVitaminDStatus(valNg) {
@@ -86,12 +90,23 @@ function updateKPIs(traj, initialParams, totalWeeks) {
 
   $id("kpiPeak").textContent = formatLevel(peakNg, 1);
   $id("kpiPeakWeek").textContent = `Semana ${peakWeek.toFixed(1)}`;
+  const peakStatus = classifyVitaminDStatus(peakNg);
+  const peakCard = $id("kpiPeakCard");
+  if (peakCard) {
+    peakCard.classList.remove("status-success", "status-warning", "status-danger");
+    peakCard.classList.add(`status-${peakStatus.tone}`);
+  }
 
   const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, totalWeeks);
   $id("kpiEndWeekNum").textContent = `${totalWeeks}${dateStr ? " • " + dateStr : ""}`;
   $id("kpiEnd").textContent = formatLevel(endNg, 1);
   const endStatus = classifyVitaminDStatus(endNg);
   $id("kpiEndStatus").textContent = endStatus.label;
+  const endCard = $id("kpiEndCard");
+  if (endCard) {
+    endCard.classList.remove("status-success", "status-warning", "status-danger");
+    endCard.classList.add(`status-${endStatus.tone}`);
+  }
 
   $id("kpiDailyAvg").textContent = `${Math.round(avgDailyIU).toLocaleString()} UI/d`;
   $id("kpiVdInfo").textContent = `Vd: ${initialParams.effectiveVolume.toFixed(1)} L • IMC: ${initialParams.bmi.toFixed(1)}`;
@@ -133,8 +148,21 @@ export function updateUnitLabels() {
 export function renderExamsTable() {
   const tbody = $id("examsTableBody");
   if (!tbody) return;
-  tbody.innerHTML = "";
 
+  if (tbody.dataset.delegated !== "true") {
+    tbody.dataset.delegated = "true";
+    tbody.addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-del");
+      if (!btn || !btn.dataset.id) return;
+      const id = btn.dataset.id;
+      store.appState.bloodMeasurements = store.appState.bloodMeasurements.filter((item) => item.id !== id);
+      autoSaveCurrentState();
+      renderExamsTable();
+      runSimulationAndRender();
+    });
+  }
+
+  const frag = document.createDocumentFragment();
   const sorted = [...store.appState.bloodMeasurements].sort((a, b) => a.week - b.week);
   sorted.forEach((exam) => {
     const tr = document.createElement("tr");
@@ -147,23 +175,33 @@ export function renderExamsTable() {
       <td>${weekCell}</td>
       <td><strong>${toDisplayUnit(exam.valueNg).toFixed(1)}</strong></td>
       <td title="${safeNote}">${safeNote}</td>
-      <td><button type="button" class="btn-del" aria-label="Eliminar examen">&times;</button></td>
+      <td><button type="button" class="btn-del" data-id="${escapeHTML(exam.id)}" aria-label="Eliminar examen">&times;</button></td>
     `;
-    tr.querySelector(".btn-del").addEventListener("click", () => {
-      store.appState.bloodMeasurements = store.appState.bloodMeasurements.filter((e) => e.id !== exam.id);
-      autoSaveCurrentState();
-      renderExamsTable();
-      runSimulationAndRender();
-    });
-    tbody.appendChild(tr);
+    frag.appendChild(tr);
   });
+
+  tbody.innerHTML = "";
+  tbody.appendChild(frag);
 }
 
 export function renderAnthroTable() {
   const tbody = $id("anthroTableBody");
   if (!tbody) return;
-  tbody.innerHTML = "";
 
+  if (tbody.dataset.delegated !== "true") {
+    tbody.dataset.delegated = "true";
+    tbody.addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-del");
+      if (!btn || !btn.dataset.id) return;
+      const id = btn.dataset.id;
+      store.appState.anthropometryLogs = store.appState.anthropometryLogs.filter((a) => a.id !== id);
+      autoSaveCurrentState();
+      renderAnthroTable();
+      runSimulationAndRender();
+    });
+  }
+
+  const frag = document.createDocumentFragment();
   const sorted = [...store.appState.anthropometryLogs].sort((a, b) => a.week - b.week);
   sorted.forEach((log) => {
     const tr = document.createElement("tr");
@@ -175,22 +213,76 @@ export function renderAnthroTable() {
       <td>${weekCell}</td>
       <td>${log.weight} kg</td>
       <td>${log.bodyFat}%</td>
-      <td><button type="button" class="btn-del" aria-label="Eliminar registro">&times;</button></td>
+      <td><button type="button" class="btn-del" data-id="${escapeHTML(log.id)}" aria-label="Eliminar registro">&times;</button></td>
     `;
-    tr.querySelector(".btn-del").addEventListener("click", () => {
-      store.appState.anthropometryLogs = store.appState.anthropometryLogs.filter((a) => a.id !== log.id);
-      autoSaveCurrentState();
-      renderAnthroTable();
-      runSimulationAndRender();
-    });
-    tbody.appendChild(tr);
+    frag.appendChild(tr);
   });
+
+  tbody.innerHTML = "";
+  tbody.appendChild(frag);
+}
+
+let editingDoseId = null;
+
+export function getEditingDoseId() {
+  return editingDoseId;
+}
+
+export function clearDoseEditMode() {
+  editingDoseId = null;
+  const addBtnSpan = document.querySelector("#addDoseBtn span");
+  if (addBtnSpan) addBtnSpan.textContent = "Agregar Tramo";
+  $id("cancelDoseEditBtn")?.classList.add("hidden");
+  renderDosesTable();
 }
 
 export function renderDosesTable() {
   const tbody = $id("dosesTableBody");
   if (!tbody) return;
-  tbody.innerHTML = "";
+
+  if (tbody.dataset.delegated !== "true") {
+    tbody.dataset.delegated = "true";
+    tbody.addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-del");
+      if (btn && btn.dataset.id) {
+        const id = btn.dataset.id;
+        store.appState.doses = store.appState.doses.filter((item) => item.id !== id);
+        if (editingDoseId === id) {
+          editingDoseId = null;
+          const addBtnSpan = document.querySelector("#addDoseBtn span");
+          if (addBtnSpan) addBtnSpan.textContent = "Agregar Tramo";
+          $id("cancelDoseEditBtn")?.classList.add("hidden");
+        }
+        autoSaveCurrentState();
+        renderDosesTable();
+        runSimulationAndRender();
+        return;
+      }
+
+      const row = e.target.closest("tr[data-id]");
+      if (!row) return;
+      const d = store.appState.doses.find((item) => item.id === row.dataset.id);
+      if (!d) return;
+
+      editingDoseId = d.id;
+      const typeEl = $id("doseType");
+      if (typeEl) {
+        typeEl.value = d.type;
+        typeEl.dispatchEvent(new Event("change"));
+      }
+      if ($id("doseAmount")) {
+        $id("doseAmount").value = String(d.type === "calcifediol" ? (d.amount ?? d.ug ?? 266) : (d.amount ?? d.iu ?? 2000));
+      }
+      if ($id("doseFreq")) $id("doseFreq").value = d.freq || "daily";
+      if ($id("doseStartWeek")) $id("doseStartWeek").value = String(d.startWeek ?? 0);
+      if ($id("doseEndWeek")) $id("doseEndWeek").value = String(d.endWeek ?? 12);
+
+      const addBtnSpan = document.querySelector("#addDoseBtn span");
+      if (addBtnSpan) addBtnSpan.textContent = "Actualizar Tramo";
+      $id("cancelDoseEditBtn")?.classList.remove("hidden");
+      renderDosesTable();
+    });
+  }
 
   const freqMap = {
     daily: "/d",
@@ -200,8 +292,11 @@ export function renderDosesTable() {
     single: "única"
   };
 
+  const frag = document.createDocumentFragment();
   store.appState.doses.forEach((d) => {
     const tr = document.createElement("tr");
+    tr.dataset.id = d.id;
+    if (d.id === editingDoseId) tr.classList.add("editing-row");
     const isCalci = d.type === "calcifediol";
     let doseStr = "";
     if (isCalci) {
@@ -226,16 +321,13 @@ export function renderDosesTable() {
       <td><span class="badge-pill ${isCalci ? "badge-calci" : "badge-d3"}">${isCalci ? "Hidroferol" : "D3"}</span></td>
       <td title="${doseStr}">${doseStr}</td>
       <td>${tramoText}</td>
-      <td><button type="button" class="btn-del" aria-label="Eliminar dosis">&times;</button></td>
+      <td><button type="button" class="btn-del" data-id="${escapeHTML(d.id)}" aria-label="Eliminar dosis">&times;</button></td>
     `;
-    tr.querySelector(".btn-del").addEventListener("click", () => {
-      store.appState.doses = store.appState.doses.filter((item) => item.id !== d.id);
-      autoSaveCurrentState();
-      renderDosesTable();
-      runSimulationAndRender();
-    });
-    tbody.appendChild(tr);
+    frag.appendChild(tr);
   });
+
+  tbody.innerHTML = "";
+  tbody.appendChild(frag);
 }
 
 export function syncUIWithState() {
@@ -468,7 +560,7 @@ export function renderMemoriesList() {
 
 export async function exportMemoriesJSON() {
   const payload = {
-    app: "Vitamina D Simulator v0.3.7",
+    app: `Vitamina D Simulator v${APP_VERSION}`,
     exportedAt: new Date().toISOString(),
     profilesStore: store.profilesStore
   };
@@ -555,6 +647,8 @@ export function renderProfileSelector() {
   });
 }
 
+let renamingProfileId = null;
+
 export function renderProfilesModalList(onActivate, onRename, onDelete) {
   const container = $id("profilesListContainer");
   if (!container) return;
@@ -565,27 +659,72 @@ export function renderProfilesModalList(onActivate, onRename, onDelete) {
     const bp = p.state?.bodyProfile || {};
     const item = document.createElement("div");
     item.className = `profile-item ${isActive ? "active-profile" : ""}`;
-    item.innerHTML = `
-      <div class="profile-item-info">
-        <strong>${escapeHTML(p.name)} ${isActive ? "• Activo" : ""}</strong>
-        <span>${bp.weight || "--"} kg • ${bp.bodyFat || "--"}% grasa • ${(p.savedSimulations || []).length} memorias</span>
-      </div>
-      <div class="profile-item-btns">
-        ${!isActive ? `<button type="button" class="btn-helio btn-sm" data-action="activate" data-id="${p.id}">Activar</button>` : ""}
-        <button type="button" class="btn-instrument btn-sm" data-action="rename" data-id="${p.id}">Renombrar</button>
-        ${store.profilesStore.profiles.length > 1 ? `<button type="button" class="btn-danger-ghost btn-sm" data-action="delete" data-id="${p.id}">Borrar</button>` : ""}
-      </div>
-    `;
+
+    if (renamingProfileId === p.id) {
+      item.innerHTML = `
+        <div class="profile-rename-inline">
+          <input type="text" class="profile-rename-input" value="${escapeHTML(p.name)}" maxlength="60" aria-label="Nuevo nombre del perfil" />
+          <button type="button" class="btn-helio btn-sm" data-action="save-rename" data-id="${escapeHTML(p.id)}">Guardar</button>
+          <button type="button" class="btn-instrument btn-sm" data-action="cancel-rename">Cancelar</button>
+        </div>
+      `;
+    } else {
+      item.innerHTML = `
+        <div class="profile-item-info">
+          <strong>${escapeHTML(p.name)} ${isActive ? "• Activo" : ""}</strong>
+          <span>${bp.weight || "--"} kg • ${bp.bodyFat || "--"}% grasa • ${(p.savedSimulations || []).length} memorias</span>
+        </div>
+        <div class="profile-item-btns">
+          ${!isActive ? `<button type="button" class="btn-helio btn-sm" data-action="activate" data-id="${escapeHTML(p.id)}">Activar</button>` : ""}
+          <button type="button" class="btn-instrument btn-sm" data-action="rename" data-id="${escapeHTML(p.id)}">Renombrar</button>
+          ${store.profilesStore.profiles.length > 1 ? `<button type="button" class="btn-danger-ghost btn-sm" data-action="delete" data-id="${escapeHTML(p.id)}">Borrar</button>` : ""}
+        </div>
+      `;
+    }
     container.appendChild(item);
   });
+
+  if (renamingProfileId) {
+    const input = container.querySelector(".profile-rename-input");
+    input?.focus();
+    input?.select();
+    input?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const val = input.value.trim();
+        const id = renamingProfileId;
+        renamingProfileId = null;
+        if (val) onRename(id, val);
+        else renderProfilesModalList(onActivate, onRename, onDelete);
+      } else if (e.key === "Escape") {
+        renamingProfileId = null;
+        renderProfilesModalList(onActivate, onRename, onDelete);
+      }
+    });
+  }
 
   container.querySelectorAll("button[data-action]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const action = btn.dataset.action;
       const id = btn.dataset.id;
-      if (action === "activate") onActivate(id);
-      else if (action === "rename") onRename(id);
-      else if (action === "delete") onDelete(id);
+      if (action === "activate") {
+        renamingProfileId = null;
+        onActivate(id);
+      } else if (action === "rename") {
+        renamingProfileId = id;
+        renderProfilesModalList(onActivate, onRename, onDelete);
+      } else if (action === "save-rename") {
+        const input = btn.closest(".profile-rename-inline")?.querySelector(".profile-rename-input");
+        const newName = input?.value.trim() || "";
+        renamingProfileId = null;
+        if (newName) onRename(id, newName);
+        else renderProfilesModalList(onActivate, onRename, onDelete);
+      } else if (action === "cancel-rename") {
+        renamingProfileId = null;
+        renderProfilesModalList(onActivate, onRename, onDelete);
+      } else if (action === "delete") {
+        renamingProfileId = null;
+        onDelete(id);
+      }
     });
   });
 }

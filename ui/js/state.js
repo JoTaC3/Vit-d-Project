@@ -2,6 +2,7 @@
  * Módulo de Estado, Perfiles y Persistencia
  */
 
+export const APP_VERSION = "0.3.8";
 export const NG_TO_NMOL = 2.496;
 export const STORAGE_KEY_PROFILES = "vitd_sim_v7_profiles";
 export const STORAGE_KEY_THEME = "vitd_sim_v7_theme";
@@ -188,7 +189,13 @@ export function persistProfilesStore() {
   }
 }
 
+let autoSaveTimer = null;
+
 export function autoSaveCurrentState() {
+  if (autoSaveTimer !== null) {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = null;
+  }
   const active = getActiveProfile();
   if (active) {
     active.state = JSON.parse(JSON.stringify(store.appState));
@@ -196,6 +203,29 @@ export function autoSaveCurrentState() {
     active.updatedAt = new Date().toISOString();
     persistProfilesStore();
   }
+}
+
+export function scheduleAutoSave(delayMs = 400) {
+  if (autoSaveTimer !== null) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    autoSaveTimer = null;
+    autoSaveCurrentState();
+  }, delayMs);
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && autoSaveTimer !== null) {
+      autoSaveCurrentState();
+    }
+  });
+}
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => {
+    if (autoSaveTimer !== null) {
+      autoSaveCurrentState();
+    }
+  });
 }
 
 export function initializeProfiles() {

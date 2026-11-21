@@ -84,13 +84,14 @@
     <section id="tab-simulador" class="tab-content active" role="tabpanel">
       <div class="grid-layout">
         <aside class="sidebar">
-          <div class="panel-card">
+          <div class="panel-card collapsed">
             <div class="panel-head">
               <span class="step-index">01</span>
               <div>
                 <h2>Perfil Fisiológico Base</h2>
-                <p class="hint">Modula el volumen de distribución ($V_d$) y el secuestro en tejido adiposo.</p>
+                <p class="hint">Modula el volumen de distribución (V<sub>d</sub>) y el secuestro en tejido adiposo.</p>
               </div>
+              <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
             <div class="form-row">
@@ -140,13 +141,14 @@
             </div>
           </div>
 
-          <div class="panel-card">
+          <div class="panel-card collapsed">
             <div class="panel-head">
               <span class="step-index">02</span>
               <div>
                 <h2>Exámenes de Laboratorio</h2>
-                <p class="hint">En <strong id="examUnitLabel">ng/mL</strong>. Semana 0 fija la condición inicial $C_2(0)$.</p>
+                <p class="hint">En <strong id="examUnitLabel">ng/mL</strong>. Semana 0 fija la condición inicial C<sub>2</sub>(0).</p>
               </div>
+              <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
             <div class="form-row">
@@ -183,13 +185,14 @@
             </div>
           </div>
 
-          <div class="panel-card">
+          <div class="panel-card collapsed">
             <div class="panel-head">
               <span class="step-index">03</span>
               <div>
                 <h2>Evolución Antropométrica</h2>
-                <p class="hint">Interpola día a día el volumen efectivo $V_d(t)$ ante cambios de peso y grasa.</p>
+                <p class="hint">Interpola día a día el volumen efectivo V<sub>d</sub>(t) ante cambios de peso y grasa.</p>
               </div>
+              <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
             <div class="form-row-3">
@@ -231,8 +234,9 @@
               <span class="step-index">04</span>
               <div>
                 <h2>Esquema de Dosificación</h2>
-                <p class="hint">Superpone múltiples tramos de $D_3$ y Hidroferol (Calcifediol).</p>
+                <p class="hint">Superpone múltiples tramos de D<sub>3</sub> y Hidroferol (Calcifediol).</p>
               </div>
+              <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
             <div class="form-group">
@@ -277,6 +281,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 <span>Agregar Tramo</span>
               </button>
+              <button type="button" id="cancelDoseEditBtn" class="btn-instrument hidden">Cancelar</button>
               <button type="button" id="clearDosesBtn" class="btn-danger-ghost" title="Eliminar todos los tramos">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                 <span>Vaciar</span>
@@ -307,12 +312,12 @@
               <span class="telemetry-val" id="kpiStart">--</span>
               <span class="telemetry-sub" id="kpiStartStatus">Basal</span>
             </div>
-            <div class="telemetry-card">
+            <div class="telemetry-card" id="kpiPeakCard">
               <span class="telemetry-label">PICO MÁXIMO PROYECTADO</span>
               <span class="telemetry-val" id="kpiPeak">--</span>
               <span class="telemetry-sub" id="kpiPeakWeek">--</span>
             </div>
-            <div class="telemetry-card highlight-card">
+            <div class="telemetry-card highlight-card" id="kpiEndCard">
               <span class="telemetry-label">CIERRE HORIZONTE (SEM <span id="kpiEndWeekNum">24</span>)</span>
               <span class="telemetry-val" id="kpiEnd">--</span>
               <span class="telemetry-sub" id="kpiEndStatus">--</span>
@@ -363,7 +368,20 @@
             <div class="inspector-strip" id="inspectorStrip">
               <div class="inspector-header">
                 <span class="inspector-badge" id="scrubberWeekLabel">SEM 0.0</span>
-                <div class="inspector-metrics" id="scrubberReadout">Desliza el control o toca el gráfico para inspeccionar</div>
+                <div class="inspector-metrics" id="scrubberReadout">
+                  <div class="inspector-cell">
+                    <span class="inspector-cell-lbl">25(OH)D [mín–máx]</span>
+                    <span class="inspector-cell-val" id="scrubberConcVal">--</span>
+                  </div>
+                  <div class="inspector-cell">
+                    <span class="inspector-cell-lbl">Reserva D3 (kUI)</span>
+                    <span class="inspector-cell-val" id="scrubberAdipVal">--</span>
+                  </div>
+                  <div class="inspector-cell">
+                    <span class="inspector-cell-lbl">Aporte (UI/d)</span>
+                    <span class="inspector-cell-val" id="scrubberIntakeVal">--</span>
+                  </div>
+                </div>
               </div>
               <input type="range" id="chartScrubber" class="week-scrubber" min="0" max="24" step="0.25" value="0" aria-label="Explorar semana en el gráfico" />
             </div>
@@ -379,7 +397,7 @@
                 <h3>Compartimento Adiposo vs. D3 Libre</h3>
                 <span class="mono-tag">kUI</span>
               </div>
-              <p class="hint">Secuestro lipofílico $A_{\text{adip}}(t)$ y pool circulante $A_1(t)$ sincronizados con el cursor.</p>
+              <p class="hint">Secuestro lipofílico A<sub>adip</sub>(t) y pool circulante A<sub>1</sub>(t) sincronizados con el cursor.</p>
               <div class="chart-container-sm">
                 <canvas id="adiposeChart"></canvas>
               </div>
@@ -476,36 +494,36 @@
     <!-- TAB 4: MODELO MATEMÁTICO -->
     <section id="tab-ciencia" class="tab-content" role="tabpanel">
       <div class="panel-card science-card">
-        <h2>Arquitectura Farmacocinética Compartimental</h2>
-        <p class="science-lead">Integración numérica mediante <strong>Runge-Kutta de 4.º orden (RK4)</strong> con paso $\Delta t = 0.25\ \text{días}$ (6 horas) sobre tres variables de estado acopladas:</p>
+        <h2>Arquitectura Farmacocinética PopPK (V6)</h2>
+        <p class="science-lead">Integración numérica mediante <strong>Runge-Kutta de 4.º orden (RK4)</strong> con paso Δt = 0,25 días (6 horas) sobre cuatro variables de estado acopladas (<code>gut<sub>D3</sub></code>, <code>gut<sub>25D</sub></code>, <code>pool<sub>D3</sub></code>, <code>pool<sub>25D</sub></code>):</p>
 
         <div class="science-grid">
           <div class="science-box">
-            <span class="mono-tag">COMPARTIMENTO A1(t)</span>
-            <h3>Colecalciferol Circulante ($D_3$)</h3>
-            <p>Integra la ingesta oral modulada por biodisponibilidad no lineal (1.00 hasta 2.000 UI; 0.65 en megadosis &gt; 100.000 UI) y retorno dinámico desde tejido adiposo.</p>
-            <code>dA1/dt = k_rel·A_adip − (k_conv(A1) + k_cap + k_loss)·A1</code>
+            <span class="mono-tag">VOLÚMENES ALOMÉTRICOS</span>
+            <h3>Escalamiento Diferenciado (V<sub>rel,D3</sub> y V<sub>rel,25D</sub>)</h3>
+            <p>Referidos a un adulto estándar (FFM<sub>ref</sub> = 56 kg, FM<sub>ref</sub> = 14 kg), con interpolación diaria según la tabla antropométrica:</p>
+            <code>v_rel,D3 = max(0.55, 0.40·(FFM/56)^0.75 + 0.60·(FM/14))<br>v_rel,25D = max(0.65, 0.78·(FFM/56)^0.75 + 0.22·(FM/14))</code>
           </div>
 
           <div class="science-box">
-            <span class="mono-tag">COMPARTIMENTO A_adip(t)</span>
-            <h3>Secuestro Lipofílico Adiposo</h3>
-            <p>Captura proporcional al exceso de porcentaje graso sobre el valor de referencia biológico ($18\%$ en hombres, $26\%$ en mujeres) y liberación lenta ($k_{\text{rel}} = 0.016\ \text{d}^{-1}$).</p>
-            <code>dA_adip/dt = k_cap·A1 − k_rel·A_adip</code>
+            <span class="mono-tag">ABSORCIÓN DE D<sub>3</sub></span>
+            <h3>Colecalciferol Oral y Saturación de Hill</h3>
+            <p>Entrada intestinal con saturación en bolo (D<sub>50</sub> = 180.000 UI, exponente n = 0,85) y transferencia de primer orden (k<sub>a</sub> = 0,28 d<sup>−1</sup>, α<sub>D3</sub> = 0,00041):</p>
+            <code>η_D3(UI) = 1 / (1 + (UI / 180.000)^0.85)<br>d(gut_D3)/dt = −0,28 · gut_D3</code>
           </div>
 
           <div class="science-box">
-            <span class="mono-tag">COMPARTIMENTO C2(t)</span>
-            <h3>Calcifediol Sérico $25(\text{OH})\text{D}_3$</h3>
-            <p>Hidroxilación hepática saturable tipo Michaelis-Menten ($k_{\text{conv}}(A_1) = 0.24 / (1 + A_1/65)$). El calcifediol oral (Hidroferol cápsula 266 µg) ingresa directamente al compartimento $C_2$ con biodisponibilidad oral (~82%).</p>
-            <code>dC2/dt = [0.30 · k_conv(A1) · A1] / Vd(t) − k_elim · C2</code>
+            <span class="mono-tag">ABSORCIÓN DE CALCIFEDIOL</span>
+            <h3>Hidroferol 25(OH)D<sub>3</sub> (µg / mg)</h3>
+            <p>Absorción directa rápida (k<sub>a</sub> = 1,40 d<sup>−1</sup>, α<sub>25D</sub> = 0,068) con saturación de Hill (D<sub>50</sub> = 2,50 mg; cápsula estándar = 266 µg):</p>
+            <code>η_25D(mg) = 1 / (1 + (mg / 2,50)^0.85)<br>C(t) = C_2(0) + pool_D3/v_rel,D3 + pool_25D/v_rel,25D</code>
           </div>
 
           <div class="science-box">
-            <span class="mono-tag">ESCALAMIENTO Vd(t)</span>
-            <h3>Volumen de Distribución Dinámico</h3>
-            <p>Calculado a partir de masa magra $M_{\text{lean}}(t)$ e IMC, interpolado diariamente según los controles registrados en la tabla antropométrica.</p>
-            <code>Vd(t) = 13.8 · (M_lean/60)^0.75 · (1 + 1.45·ΔF_exc + 0.012·(IMC−25)+)</code>
+            <span class="mono-tag">ACLARAMIENTO CYP24A1</span>
+            <h3>Vida Media y Retroalimentación Enzimática</h3>
+            <p>Vida media base t<sub>1/2</sub> = 25,0 días (k<sub>e,base</sub> = ln(2)/25) con inducción CYP24A1 por encima de 30 ng/mL (E<sub>max</sub> = 0,35, EC<sub>50</sub> = 50 ng/mL):</p>
+            <code>k_e,eff(C) = k_e,base · [1 + 0,35·(C − 30)+ / (50 + (C − 30)+)]</code>
           </div>
         </div>
       </div>

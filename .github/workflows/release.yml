@@ -11,23 +11,38 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2025
+    timeout-minutes: 25
     steps:
+      - name: Optimizar entorno Windows (Defender + Git CRLF)
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.cargo"
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.rustup"
+          Add-MpPreference -ExclusionProcess "rustc.exe", "cargo.exe", "link.exe", "lld-link.exe", "makensis.exe", "candle.exe", "light.exe"
+          git config --global core.autocrlf false
+
       - name: Descargar repositorio
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Configurar Rust estable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: CachÃ© de Rust
+      - name: Caché de Rust
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          shared-key: "windows-release"
+          cache-on-failure: true
 
       - name: Instalar dependencias npm
         run: npm ci
@@ -41,21 +56,26 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Vitamina D Simulator ${{ github.ref_name }}'
-          releaseBody: 'ActualizaciÃ³n automÃ¡tica para Windows (x64) y Android (APK universal firmado).'
+          releaseBody: 'Actualización automática para Windows (x64) y Android (APK universal firmado).'
           releaseDraft: false
           prerelease: false
 
   build-android:
-    needs: build-windows
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
@@ -63,24 +83,37 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Configurar caché de Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
       - name: Configurar Android SDK, NDK y Build-Tools
         run: |
           SDKMGR="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
-          "$SDKMGR" --install "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35"
+          PKGS=()
+          [ -d "$ANDROID_HOME/ndk/27.2.12479018" ] || PKGS+=("ndk;27.2.12479018")
+          [ -d "$ANDROID_HOME/build-tools/35.0.0" ] || PKGS+=("build-tools;35.0.0")
+          [ -d "$ANDROID_HOME/platforms/android-35" ] || PKGS+=("platforms;android-35")
+          if [ ${#PKGS[@]} -gt 0 ]; then
+            yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
+            "$SDKMGR" --install "${PKGS[@]}"
+          fi
           NDK_DIR=$(ls -d "$ANDROID_HOME/ndk/"* | sort -V | tail -n 1)
-          echo "NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+          echo "NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
 
-      - name: Configurar Rust + targets Android
+      - name: Configurar Rust + targets Android (ARM)
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          targets: aarch64-linux-android,armv7-linux-androideabi
 
-      - name: CachÃ© de Rust
+      - name: Caché de Rust
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          shared-key: "android-arm-release"
+          cache-on-failure: true
 
       - name: Instalar dependencias npm
         run: npm ci
@@ -88,7 +121,7 @@ jobs:
       - name: Inicializar y compilar APK Release
         run: |
           npx tauri android init
-          npx tauri android build --apk
+          npx tauri android build --apk --target aarch64 --target armv7
 
       - name: Alinear y firmar APK con Keystore fijo
         env:
@@ -99,12 +132,37 @@ jobs:
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > vitd-release.keystore
           BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
-          UNSIGNED_APK="src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
+          UNSIGNED_APK=$(find src-tauri/gen/android/app/build/outputs/apk -type f -name "*-release-unsigned.apk" | head -n 1)
+          [ -n "$UNSIGNED_APK" ]
           SIGNED_APK="Vitamina-D-Simulator-${{ github.ref_name }}-android.apk"
           "$BUILD_TOOLS/zipalign" -v -p 4 "$UNSIGNED_APK" app-aligned.apk
-          "$BUILD_TOOLS/apksigner" sign             --ks vitd-release.keystore             --ks-key-alias "$ANDROID_KEY_ALIAS"             --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD"             --key-pass "pass:$ANDROID_KEY_PASSWORD"             --out "$SIGNED_APK"             app-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks vitd-release.keystore \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" \
+            --key-pass "pass:$ANDROID_KEY_PASSWORD" \
+            --out "$SIGNED_APK" \
+            app-aligned.apk
           "$BUILD_TOOLS/apksigner" verify --verbose "$SIGNED_APK"
           rm -f vitd-release.keystore app-aligned.apk
+
+      - name: Subir artefacto APK firmado
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-signed-apk
+          path: Vitamina-D-Simulator-${{ github.ref_name }}-android.apk
+          compression-level: 0
+          retention-days: 1
+
+  publish-android:
+    needs: [build-windows, build-android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Descargar APK firmado
+        uses: actions/download-artifact@v4
+        with:
+          name: android-signed-apk
 
       - name: Subir APK firmado al Release de GitHub
         env:

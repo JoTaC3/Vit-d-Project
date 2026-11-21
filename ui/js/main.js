@@ -13,6 +13,7 @@ import {
   getActiveProfile,
   persistProfilesStore,
   autoSaveCurrentState,
+  scheduleAutoSave,
   initializeProfiles
 } from "./state.js";
 import {
@@ -29,7 +30,9 @@ import {
   exportMemoriesJSON,
   importMemoriesJSON,
   renderProfileSelector,
-  renderProfilesModalList
+  renderProfilesModalList,
+  getEditingDoseId,
+  clearDoseEditMode
 } from "./ui.js";
 import * as chartsMod from "./charts.js";
 
@@ -43,6 +46,7 @@ const MOON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" st
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   localStorage.setItem(STORAGE_KEY_THEME, theme);
+  chartsMod.invalidateChartThemeCache?.();
   const icon = $id("themeIcon");
   const text = $id("themeText");
   if (icon && text) {
@@ -75,7 +79,7 @@ function openProfileManager() {
       switchProfile(id);
       closeProfileManager();
     },
-    (id) => renameProfile(id),
+    (id, newName) => renameProfile(id, newName),
     (id) => deleteProfile(id)
   );
   $id("profileManagerModal")?.classList.remove("hidden");
@@ -153,12 +157,12 @@ function deleteProfile(profileId) {
   showToast("Perfil eliminado");
 }
 
-function renameProfile(profileId) {
+function renameProfile(profileId, newName) {
   const prof = store.profilesStore.profiles.find((p) => p.id === profileId);
   if (!prof) return;
-  const newName = prompt("Nuevo nombre para el perfil:", prof.name);
-  if (newName && newName.trim()) {
-    prof.name = newName.trim();
+  const clean = (newName || "").trim();
+  if (clean) {
+    prof.name = clean;
     prof.updatedAt = new Date().toISOString();
     persistProfilesStore();
     renderProfileSelector();
@@ -185,6 +189,12 @@ async function checkDesktopUpdate() {
 function bindUIEvents() {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+  });
+
+  document.querySelectorAll(".sidebar .panel-head").forEach((head) => {
+    head.addEventListener("click", () => {
+      head.closest(".panel-card")?.classList.toggle("collapsed");
+    });
   });
 
   $id("themeToggle")?.addEventListener("click", () => {
@@ -259,18 +269,26 @@ function bindUIEvents() {
   });
 
   const profileInputs = ["sex", "age", "height", "weight", "bodyFat", "simWeeks"];
+  let profileInputTimer = null;
+  const applyProfileInputs = () => {
+    const bp = store.appState.bodyProfile;
+    if ($id("sex")) bp.sex = $id("sex").value;
+    if ($id("age")) bp.age = clampNum($id("age").value, 15, 100, 22);
+    if ($id("height")) bp.height = clampNum($id("height").value, 120, 230, 180);
+    if ($id("weight")) bp.weight = clampNum($id("weight").value, 35, 250, 110);
+    if ($id("bodyFat")) bp.bodyFat = clampNum($id("bodyFat").value, 4, 65, 32);
+    if ($id("simWeeks")) bp.simWeeks = clampNum($id("simWeeks").value, 4, 104, 24);
+
+    scheduleAutoSave();
+    safeRenderAll();
+  };
   profileInputs.forEach((id) => {
     $id(id)?.addEventListener("input", () => {
-      const bp = store.appState.bodyProfile;
-      if ($id("sex")) bp.sex = $id("sex").value;
-      if ($id("age")) bp.age = clampNum($id("age").value, 15, 100, 22);
-      if ($id("height")) bp.height = clampNum($id("height").value, 120, 230, 180);
-      if ($id("weight")) bp.weight = clampNum($id("weight").value, 35, 250, 110);
-      if ($id("bodyFat")) bp.bodyFat = clampNum($id("bodyFat").value, 4, 65, 32);
-      if ($id("simWeeks")) bp.simWeeks = clampNum($id("simWeeks").value, 4, 104, 24);
-
-      autoSaveCurrentState();
-      safeRenderAll();
+      if (profileInputTimer !== null) clearTimeout(profileInputTimer);
+      profileInputTimer = setTimeout(() => {
+        profileInputTimer = null;
+        applyProfileInputs();
+      }, 120);
     });
   });
 
@@ -369,6 +387,28 @@ function bindUIEvents() {
       ug = Math.round(amount / 40);
     }
 
+    const editId = getEditingDoseId();
+    if (editId) {
+      const idx = store.appState.doses.findIndex((item) => item.id === editId);
+      if (idx >= 0) {
+        store.appState.doses[idx] = {
+          id: editId,
+          type,
+          amount,
+          iu,
+          ug,
+          freq,
+          startWeek,
+          endWeek
+        };
+      }
+      autoSaveCurrentState();
+      clearDoseEditMode();
+      safeRenderAll();
+      showToast(`Tramo de ${isCalci ? "Hidroferol" : "D3"} actualizado`);
+      return;
+    }
+
     store.appState.doses.push({
       id: cryptoId(),
       type,
@@ -385,10 +425,12 @@ function bindUIEvents() {
     showToast(`Tramo de ${isCalci ? "Hidroferol" : "D3"} agregado`);
   });
 
+  $id("cancelDoseEditBtn")?.addEventListener("click", clearDoseEditMode);
+
   $id("clearDosesBtn")?.addEventListener("click", () => {
     store.appState.doses = [];
     autoSaveCurrentState();
-    renderDosesTable();
+    clearDoseEditMode();
     safeRenderAll();
     showToast("Tramos de dosis eliminados");
   });

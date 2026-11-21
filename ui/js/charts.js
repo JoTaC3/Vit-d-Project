@@ -11,6 +11,9 @@ let intakeChart = null;
 let lastSimSnapshot = null;
 let activeCursorWeek = null;
 let zoomRange = { min: 0, max: null };
+let themePalette = null;
+let rafPending = false;
+let chartsDirty = false;
 
 export const chartLayers = {
   zones: true,
@@ -18,9 +21,14 @@ export const chartLayers = {
   doses: true
 };
 
+export function invalidateChartThemeCache() {
+  themePalette = null;
+}
+
 function getThemePalette() {
+  if (themePalette) return themePalette;
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-  return {
+  themePalette = {
     isDark,
     text: isDark ? "#c5ccd6" : "#3f4650",
     muted: isDark ? "#8892a0" : "#646c75",
@@ -46,6 +54,7 @@ function getThemePalette() {
           high: "rgba(180, 83, 9, 0.04)"
         }
   };
+  return themePalette;
 }
 
 /* Plugin: Bandas Fisiológicas Clínicas de Fondo */
@@ -133,6 +142,42 @@ const verticalReticlePlugin = {
           ctx.stroke();
         }
       }
+
+      // Anotación discreta del pico máximo proyectado
+      const levels = lastSimSnapshot.mainTraj.levels;
+      const weeks = lastSimSnapshot.mainTraj.weeks;
+      if (levels.length > 0 && scales.y) {
+        let peakIdx = 0;
+        for (let i = 1; i < levels.length; i++) {
+          if (levels[i] > levels[peakIdx]) peakIdx = i;
+        }
+        const peakWeek = weeks[peakIdx];
+        const peakVal = toDisplayUnit(levels[peakIdx], store.appState.unit);
+        const px = scales.x.getPixelForValue(peakWeek);
+        const py = scales.y.getPixelForValue(peakVal);
+        if (px >= chartArea.left && px <= chartArea.right && py >= chartArea.top && py <= chartArea.bottom) {
+          ctx.setLineDash([]);
+          ctx.fillStyle = palette.helio;
+          ctx.beginPath();
+          ctx.arc(px, py, 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          const label = `Pico ${peakVal.toFixed(1)} (S${peakWeek.toFixed(1)})`;
+          ctx.font = '700 10px "JetBrains Mono", monospace';
+          const tw = ctx.measureText(label).width + 10;
+          const tx = Math.min(chartArea.right - tw - 4, Math.max(chartArea.left + 4, px - tw / 2));
+          const ty = Math.max(chartArea.top + 4, py - 24);
+          ctx.fillStyle = palette.isDark ? "#131820" : "#ffffff";
+          ctx.strokeStyle = palette.helio;
+          ctx.lineWidth = 1;
+          ctx.fillRect(tx, ty, tw, 17);
+          ctx.strokeRect(tx, ty, tw, 17);
+          ctx.fillStyle = palette.helio;
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(label, tx + 5, ty + 8.5);
+        }
+      }
     }
     ctx.restore();
   }
@@ -140,16 +185,7 @@ const verticalReticlePlugin = {
 
 function findClosestWeekIndex(weeksArr, targetWeek) {
   if (!weeksArr || weeksArr.length === 0) return -1;
-  let bestIdx = 0;
-  let bestDiff = Math.abs(weeksArr[0] - targetWeek);
-  for (let i = 1; i < weeksArr.length; i++) {
-    const diff = Math.abs(weeksArr[i] - targetWeek);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      bestIdx = i;
-    }
-  }
-  return bestIdx;
+  return Math.max(0, Math.min(weeksArr.length - 1, Math.round(targetWeek * 7)));
 }
 
 function updateInspectorUI(week) {
@@ -167,12 +203,19 @@ function updateInspectorUI(week) {
   const intake = mainTraj.dailyEquivIU[idx].toLocaleString();
 
   const weekBadge = document.getElementById("scrubberWeekLabel");
+  const concVal = document.getElementById("scrubberConcVal");
+  const adipVal = document.getElementById("scrubberAdipVal");
+  const intakeVal = document.getElementById("scrubberIntakeVal");
   const readout = document.getElementById("scrubberReadout");
   const scrubber = document.getElementById("chartScrubber");
 
   const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, w);
   if (weekBadge) weekBadge.textContent = `SEM ${w.toFixed(1)}${dateStr ? " • " + dateStr : ""}`;
-  if (readout) {
+  if (concVal && adipVal && intakeVal) {
+    concVal.textContent = `${cMain} ${unit} [${cLow}–${cHigh}]`;
+    adipVal.textContent = `${adip} kUI`;
+    intakeVal.textContent = `${intake} UI/d`;
+  } else if (readout) {
     readout.textContent = `25(OH)D: ${cMain} ${unit} [${cLow}–${cHigh}] • Reserva D3: ${adip} kUI • Aporte: ${intake} UI/d`;
   }
   if (scrubber && Math.abs(Number(scrubber.value) - w) > 0.01) {
@@ -182,23 +225,31 @@ function updateInspectorUI(week) {
 
 export function setInspectedWeek(week, redraw = true) {
   activeCursorWeek = week;
-  updateInspectorUI(week);
-  if (redraw) {
+  if (!redraw) {
+    updateInspectorUI(week);
+    return;
+  }
+  if (rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(() => {
+    rafPending = false;
+    updateInspectorUI(activeCursorWeek);
     bloodChart?.draw();
     adiposeChart?.draw();
     intakeChart?.draw();
-  }
+  });
 }
 
-function bindCanvasPointerSync(canvas) {
+function bindCanvasPointerSync(canvas, getChart) {
   if (!canvas || canvas.dataset.pointerBound === "true") return;
   canvas.dataset.pointerBound = "true";
 
   const handlePointer = (clientX) => {
-    if (!bloodChart || !lastSimSnapshot) return;
+    const chart = getChart?.();
+    if (!chart || !lastSimSnapshot) return;
     const rect = canvas.getBoundingClientRect();
     const relX = clientX - rect.left;
-    const xScale = bloodChart.scales.x;
+    const xScale = chart.scales?.x;
     if (!xScale) return;
     const rawWeek = xScale.getValueForPixel(relX);
     const clamped = Math.max(0, Math.min(lastSimSnapshot.totalWeeks, Number(rawWeek.toFixed(2))));
@@ -223,18 +274,28 @@ function bindCanvasPointerSync(canvas) {
 }
 
 function buildDoseMarkers(totalWeeks, baselineY) {
-  const markers = [];
+  const d3Markers = [];
+  const calciMarkers = [];
+  const startDate = store.appState.bodyProfile.startDate;
+
   store.appState.doses.forEach((d) => {
     const startW = Math.max(0, d.startWeek);
     const endW = Math.min(totalWeeks, d.endWeek);
     const isCalci = d.type === "calcifediol";
-    const label = isCalci
-      ? `Hidroferol ${d.amount || d.ug || 266} µg`
-      : `D3 ${(d.amount || d.iu || 2000).toLocaleString()} UI`;
+    const target = isCalci ? calciMarkers : d3Markers;
+    const compound = isCalci ? "Hidroferol (Calcifediol)" : "Colecalciferol D3";
+    const doseText = isCalci
+      ? `${d.amount || d.ug || 266} µg`
+      : `${(d.amount || d.iu || 2000).toLocaleString()} UI`;
 
     if (d.freq === "single") {
       if (startW <= totalWeeks) {
-        markers.push({ x: startW, y: baselineY, note: `Bolo único: ${label}` });
+        const dateStr = getDateForWeek(startDate, startW);
+        target.push({
+          x: startW,
+          y: baselineY,
+          note: `${compound} (${doseText}, bolo único)${dateStr ? " • " + dateStr : ""}`
+        });
       }
       return;
     }
@@ -245,10 +306,16 @@ function buildDoseMarkers(totalWeeks, baselineY) {
       d.freq === "biweekly" ? 2 : 4.28;
 
     for (let w = startW; w < endW; w += stepW) {
-      markers.push({ x: Number(w.toFixed(2)), y: baselineY, note: `Toma (${d.freq}): ${label}` });
+      const wk = Number(w.toFixed(2));
+      const dateStr = getDateForWeek(startDate, wk);
+      target.push({
+        x: wk,
+        y: baselineY,
+        note: `${compound} (${doseText}, ${d.freq})${dateStr ? " • " + dateStr : ""}`
+      });
     }
   });
-  return markers;
+  return { d3Markers, calciMarkers };
 }
 
 export function adjustChartZoom(action, totalWeeks) {
@@ -299,8 +366,27 @@ export function toggleChartLayer(layerKey) {
   return chartLayers[layerKey];
 }
 
+export function flushChartsIfDirty() {
+  if (chartsDirty && lastSimSnapshot) {
+    chartsDirty = false;
+    renderCharts(
+      lastSimSnapshot.mainTraj,
+      lastSimSnapshot.lowerTraj,
+      lastSimSnapshot.upperTraj,
+      lastSimSnapshot.totalWeeks
+    );
+  }
+}
+
 export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
   lastSimSnapshot = { mainTraj, lowerTraj, upperTraj, totalWeeks };
+  const bloodCanvas = document.getElementById("bloodChart");
+  if (bloodCanvas && bloodCanvas.offsetParent === null) {
+    chartsDirty = true;
+    return;
+  }
+  chartsDirty = false;
+
   const colors = getThemePalette();
   const unit = store.appState.unit;
 
@@ -344,18 +430,23 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
   const optLow = Number(toDisplayUnit(30, unit).toFixed(1));
   const toxThresh = Number(toDisplayUnit(100, unit).toFixed(1));
 
-  const maxDataY = Math.max(
-    toxThresh * 1.06,
-    ...upperPoints.map((p) => p.y * 1.12),
-    ...examPoints.map((p) => p.y * 1.15)
-  );
+  let maxDataY = toxThresh * 1.06;
+  for (let i = 0; i < upperPoints.length; i++) {
+    const val = upperPoints[i].y * 1.12;
+    if (val > maxDataY) maxDataY = val;
+  }
+  for (let i = 0; i < examPoints.length; i++) {
+    const val = examPoints[i].y * 1.15;
+    if (val > maxDataY) maxDataY = val;
+  }
 
-  const doseMarkers = chartLayers.doses ? buildDoseMarkers(totalWeeks, Math.ceil(maxDataY) * 0.025) : [];
+  const { d3Markers, calciMarkers } = chartLayers.doses
+    ? buildDoseMarkers(totalWeeks, Math.ceil(maxDataY) * 0.025)
+    : { d3Markers: [], calciMarkers: [] };
 
-  const bloodCanvas = document.getElementById("bloodChart");
   const bloodCtx = bloodCanvas?.getContext("2d");
   if (bloodCtx) {
-    bindCanvasPointerSync(bloodCanvas);
+    bindCanvasPointerSync(bloodCanvas, () => bloodChart);
 
     const datasets = [
       {
@@ -398,14 +489,25 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
         pointHoverRadius: 8
       },
       {
-        label: "Tomas Programadas",
-        data: doseMarkers,
+        label: "Tomas D3",
+        data: d3Markers,
         type: "scatter",
         pointStyle: "triangle",
         backgroundColor: colors.helio,
         borderColor: "transparent",
         pointRadius: 4.5,
         pointHoverRadius: 6.5
+      },
+      {
+        label: "Tomas Hidroferol",
+        data: calciMarkers,
+        type: "scatter",
+        pointStyle: "rectRot",
+        backgroundColor: colors.serum,
+        borderColor: colors.isDark ? "#0c0f14" : "#ffffff",
+        borderWidth: 1,
+        pointRadius: 5.5,
+        pointHoverRadius: 7.5
       },
       {
         label: `Óptimo (${optLow} ${unit})`,
@@ -475,7 +577,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
                   const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, ctx.parsed.x);
                   const datePart = dateStr ? ` • ${dateStr}` : "";
                   if (raw && raw.note) {
-                    return `${raw.note} • Sem ${raw.x}${datePart}`;
+                    return raw.note.includes("•") ? `${raw.note} (Sem ${raw.x})` : `${raw.note} • Sem ${raw.x}${datePart}`;
                   }
                   return `${ctx.dataset.label}: ${ctx.parsed.y} ${unit} (Sem ${ctx.parsed.x}${datePart})`;
                 }
@@ -507,7 +609,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
   const adipCanvas = document.getElementById("adiposeChart");
   const adipCtx = adipCanvas?.getContext("2d");
   if (adipCtx) {
-    bindCanvasPointerSync(adipCanvas);
+    bindCanvasPointerSync(adipCanvas, () => adiposeChart);
     const adipDatasets = [
       {
         label: "Reserva Adiposa (kUI)",
@@ -582,7 +684,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
   const intakeCanvas = document.getElementById("intakeChart");
   const intakeCtx = intakeCanvas?.getContext("2d");
   if (intakeCtx) {
-    bindCanvasPointerSync(intakeCanvas);
+    bindCanvasPointerSync(intakeCanvas, () => intakeChart);
     const intakeDatasets = [
       {
         label: "Aporte Equivalente (UI/día)",

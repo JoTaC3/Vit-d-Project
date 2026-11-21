@@ -646,6 +646,18 @@ select:focus {
   border-left: 3px solid var(--helio);
 }
 
+.telemetry-card.status-success {
+  border-top: 3px solid var(--success);
+}
+
+.telemetry-card.status-warning {
+  border-top: 3px solid var(--warning);
+}
+
+.telemetry-card.status-danger {
+  border-top: 3px solid var(--danger);
+}
+
 .telemetry-label {
   font-family: var(--font-mono);
   font-size: 0.66rem;
@@ -796,6 +808,39 @@ select:focus {
   font-size: 0.76rem;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(115px, 1fr));
+  gap: 8px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.inspector-cell {
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  min-width: 0;
+}
+
+.inspector-cell-lbl {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inspector-cell-val {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .week-scrubber {
@@ -1141,10 +1186,48 @@ select:focus {
 }
 
 /* RESPONSIVE BREAKPOINTS (TABLET & ANDROID PORTRAIT) */
+.panel-chevron {
+  display: none;
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.data-table tbody tr[data-id] {
+  cursor: pointer;
+}
+
+.data-table tbody tr.editing-row {
+  background: var(--helio-soft);
+}
+
 @media (max-width: 1120px) {
   .grid-layout,
   .planner-layout {
     grid-template-columns: 1fr;
+  }
+
+  .main-panel {
+    order: -1;
+  }
+
+  .sidebar .panel-head {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .sidebar .panel-chevron {
+    display: inline-flex;
+  }
+
+  .sidebar .panel-card.collapsed > :not(.panel-head) {
+    display: none;
+  }
+
+  .sidebar .panel-card.collapsed .panel-chevron {
+    transform: rotate(-90deg);
   }
 
   .telemetry-grid {
@@ -1231,4 +1314,24 @@ select:focus {
   .toast-container {
     align-items: stretch;
   }
+}
+
+
+.profile-rename-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.profile-rename-input {
+  flex: 1;
+  min-width: 150px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
 }

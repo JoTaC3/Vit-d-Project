@@ -1,51 +1,73 @@
 /**
- * Motor Farmacocinético Compartimental ODE (RK4) y Planificador Inverso
+ * Motor Farmacocinético PopPK (V6) Compartimental ODE (RK4) y Planificador Inverso
  */
 
 import { store, getInitialBaselineNg } from "./state.js";
 
+// Constantes PopPK validadas (V6)
+// Referencia corporal: 70 kg, 20% grasa -> FFM_ref = 56 kg, FM_ref = 14 kg
+const REF_FFM_KG = 56;
+const REF_FM_KG = 14;
+
+// Colecalciferol (D3)
+const PK_D3_ALPHA = 0.00041;
+const PK_D3_KA = 0.28;
+const PK_D3_D50_IU = 180000;
+const PK_D3_HILL = 0.85;
+const THETA_FFM_D3 = 0.40;
+const THETA_FM_D3 = 0.60;
+
+// Calcifediol (Hidroferol, 25(OH)D3)
+const PK_25D_ALPHA = 0.068;
+const PK_25D_KA = 1.40;
+const PK_25D_D50_MG = 2.50;
+const THETA_FFM_25D = 0.78;
+const THETA_FM_25D = 0.22;
+
+// Aclaramiento y retroalimentación CYP24A1
+const BASE_HALF_LIFE_DAYS = 25.0;
+const PK_KE_BASE = Math.LN2 / BASE_HALF_LIFE_DAYS;
+const CYP24A1_THRESHOLD = 30.0;
+const CYP24A1_EMAX = 0.35;
+const CYP24A1_EC50 = 50.0;
+
+export function computeAllometricVolumes(weightKg, bodyFatPct) {
+  const fatMass = weightKg * (bodyFatPct / 100);
+  const leanMass = Math.max(25, weightKg - fatMass);
+  const ffmRatio = Math.pow(leanMass / REF_FFM_KG, 0.75);
+  const fmRatio = fatMass / REF_FM_KG;
+
+  const vRelD3 = Math.max(0.55, THETA_FFM_D3 * ffmRatio + THETA_FM_D3 * fmRatio);
+  const vRel25D = Math.max(0.65, THETA_FFM_25D * ffmRatio + THETA_FM_25D * fmRatio);
+
+  return { vRelD3, vRel25D, leanMass, fatMass, ffmRatio, fmRatio };
+}
+
 export function computePhysiologicalParameters(profile, weight, bodyFatPct) {
   const hMeters = (profile.height || 175) / 100;
   const bmi = weight / (hMeters * hMeters);
-  const fatMass = weight * (bodyFatPct / 100);
-  const leanMass = Math.max(25, weight - fatMass);
-
-  const refFatPct = profile.sex === "female" ? 26 : 18;
-  const excessFatFactor = Math.max(0, (bodyFatPct - refFatPct) / 100);
-  const leanScaling = Math.pow(leanMass / 60, 0.75);
-  const adipositySequestration = 1 + 1.45 * excessFatFactor + Math.max(0, (bmi - 25) * 0.012);
-
-  const effectiveVolume = 13.8 * leanScaling * adipositySequestration;
-  const ageFactor = 1 - Math.max(0, (profile.age - 30) * 0.0022);
-  const kElim25 = (Math.LN2 / 21.5) * ageFactor;
-
-  const k25Conversion = 0.24;
-  const kAdiposeCapture = 0.08 * (1 + 1.8 * excessFatFactor);
-  const kAdiposeRelease = 0.016;
-  const kLossD3 = 0.045;
+  const { vRelD3, vRel25D, leanMass, fatMass, fmRatio } = computeAllometricVolumes(weight, bodyFatPct);
+  const effectiveVolume = 13.8 * vRelD3;
 
   return {
+    vRelD3,
+    vRel25D,
     effectiveVolume,
-    kElim25,
-    k25Conversion,
-    kAdiposeCapture,
-    kAdiposeRelease,
-    kLossD3,
     bmi,
     leanMass,
-    fatMass
+    fatMass,
+    fmRatio
   };
 }
 
 export function computeDoseEfficiency(dose) {
-  if (dose.type === "calcifediol") return 0.82; // Biodisponibilidad oral directa del calcifediol (Hidroferol)
-  const iu = dose.iu ?? (dose.amount || 2000);
-  if (iu <= 2000) return 1.0;
-  if (iu <= 5000) return 0.96;
-  if (iu <= 10000) return 0.91;
-  if (iu <= 50000) return 0.82;
-  if (iu <= 100000) return 0.74;
-  return 0.65;
+  if (dose.type === "calcifediol") {
+    const ug = dose.ug ?? dose.amount ?? 266;
+    const mg = ug / 1000;
+    return 1 / (1 + Math.pow(mg / PK_25D_D50_MG, PK_D3_HILL));
+  }
+  const iu = dose.iu ?? dose.amount ?? 2000;
+  return 1 / (1 + Math.pow(iu / PK_D3_D50_IU, PK_D3_HILL));
 }
 
 export function expandDosesToTimeline(doses, totalDays) {
@@ -54,7 +76,6 @@ export function expandDosesToTimeline(doses, totalDays) {
     const startDay = Math.max(0, Math.round(d.startWeek * 7));
     const endDay = Math.min(totalDays, Math.round(d.endWeek * 7));
     const isCalci = d.type === "calcifediol";
-    const eff = computeDoseEfficiency(d);
 
     let ug = 266;
     let iu = 2000;
@@ -65,6 +86,8 @@ export function expandDosesToTimeline(doses, totalDays) {
       iu = d.amount ?? d.iu ?? 2000;
       ug = Math.round(iu / 40);
     }
+
+    const eff = computeDoseEfficiency({ type: d.type, iu, ug });
 
     if (d.freq === "single") {
       if (startDay <= totalDays) {
@@ -129,6 +152,7 @@ export function buildBodyTimeline(totalDays, weightScale = 1.0) {
 export function integrateTrajectory(totalDays, doseEvents, opts, bodyTimeline) {
   const dt = 0.25;
   const steps = Math.round(totalDays / dt);
+  const baseline = opts.baseline;
 
   const dosesByDay = new Map();
   doseEvents.forEach((ev) => {
@@ -137,10 +161,10 @@ export function integrateTrajectory(totalDays, doseEvents, opts, bodyTimeline) {
     dosesByDay.set(ev.day, arr);
   });
 
-  const p0 = bodyTimeline[0];
-  let C2 = opts.baseline;
-  let A1 = (C2 * p0.effectiveVolume * p0.kElim25) / (p0.k25Conversion || 0.24);
-  let A_adip = A1 * (p0.kAdiposeCapture / (p0.kAdiposeRelease || 0.016));
+  let gutD3 = 0;
+  let gut25D = 0;
+  let poolD3 = 0;
+  let pool25D = 0;
 
   const weeks = [];
   const levels = [];
@@ -148,31 +172,38 @@ export function integrateTrajectory(totalDays, doseEvents, opts, bodyTimeline) {
   const freeD3 = [];
   const dailyEquivIU = [];
 
+  const keEff = (conc) => {
+    const excess = Math.max(0, conc - CYP24A1_THRESHOLD);
+    return PK_KE_BASE * (1 + (CYP24A1_EMAX * excess) / (CYP24A1_EC50 + excess));
+  };
+
   for (let s = 0; s <= steps; s++) {
     const tDays = s * dt;
     const dayInt = Math.floor(tDays);
-    const params = bodyTimeline[Math.min(dayInt, bodyTimeline.length - 1)];
+    const p0 = bodyTimeline[Math.min(dayInt, bodyTimeline.length - 1)];
+    const p1 = bodyTimeline[Math.min(dayInt + 1, bodyTimeline.length - 1)];
 
     if (Math.abs(tDays - dayInt) < 1e-6) {
       const todaysEvents = dosesByDay.get(dayInt) || [];
       todaysEvents.forEach((ev) => {
         if (ev.type === "d3") {
-          A1 += (ev.iu / 1000) * ev.efficiency;
+          gutD3 += ev.iu * ev.efficiency * PK_D3_ALPHA;
         } else {
-          // Hidroferol (Calcifediol en microgramos):
-          // Biodisponibilidad oral directa (~82%) hacia compartimento sérico C2 (1 ng/mL = 1 ug/L)
-          // Delta C2 (ng/mL) = (Dosis ug * eficiencia) / Vd (L)
-          const deltaC = (ev.ug * ev.efficiency) / params.effectiveVolume;
-          C2 += deltaC;
+          gut25D += ev.ug * ev.efficiency * PK_25D_ALPHA;
         }
       });
     }
 
     if (s % 4 === 0) {
+      const conc = Math.max(1, baseline + poolD3 / p0.vRelD3 + pool25D / p0.vRel25D);
+      const adipShare = Math.min(1, Math.max(0, (THETA_FM_D3 * p0.fmRatio) / p0.vRelD3));
+      const poolD3kUI = poolD3 / (PK_D3_ALPHA * 1000);
+      const gutD3kUI = gutD3 / (PK_D3_ALPHA * 1000);
+
       weeks.push(Number((tDays / 7).toFixed(2)));
-      levels.push(Math.max(1, C2));
-      adiposeReserve.push(Math.max(0, A_adip));
-      freeD3.push(Math.max(0, A1));
+      levels.push(conc);
+      adiposeReserve.push(Math.max(0, poolD3kUI * adipShare));
+      freeD3.push(Math.max(0, gutD3kUI + poolD3kUI * (1 - adipShare)));
 
       const todaysEvents = dosesByDay.get(dayInt) || [];
       const exogIU = todaysEvents.reduce((acc, ev) => {
@@ -184,39 +215,57 @@ export function integrateTrajectory(totalDays, doseEvents, opts, bodyTimeline) {
 
     if (s === steps) break;
 
-    const Vd = params.effectiveVolume;
+    const frac0 = tDays - dayInt;
+    const fracMid = frac0 + 0.5 * dt;
+    const frac1 = frac0 + dt;
 
-    const derivatives = (a1, aAdip, c2) => {
-      const satConversion = (params.k25Conversion * a1) / (1 + a1 / 65);
-      const da1 =
-        params.kAdiposeRelease * aAdip -
-        (satConversion + params.kAdiposeCapture + params.kLossD3) * a1;
+    const vD3_0 = p0.vRelD3 + frac0 * (p1.vRelD3 - p0.vRelD3);
+    const v25_0 = p0.vRel25D + frac0 * (p1.vRel25D - p0.vRel25D);
+    const vD3_M = p0.vRelD3 + fracMid * (p1.vRelD3 - p0.vRelD3);
+    const v25_M = p0.vRel25D + fracMid * (p1.vRel25D - p0.vRel25D);
+    const vD3_1 = p0.vRelD3 + frac1 * (p1.vRelD3 - p0.vRelD3);
+    const v25_1 = p0.vRel25D + frac1 * (p1.vRel25D - p0.vRel25D);
 
-      const daAdip = params.kAdiposeCapture * a1 - params.kAdiposeRelease * aAdip;
-      const dc2 = (satConversion * 0.30) / Vd - params.kElim25 * c2;
-      return [da1, daAdip, dc2];
+    const derivatives = (gD3, g25D, pD3, p25D, vD3, v25D) => {
+      const conc = Math.max(1, baseline + pD3 / vD3 + p25D / v25D);
+      const ke = keEff(conc);
+      const dgutD3 = -PK_D3_KA * gD3;
+      const dgut25D = -PK_25D_KA * g25D;
+      const dpoolD3 = PK_D3_KA * gD3 - ke * pD3;
+      const dpool25D = PK_25D_KA * g25D - ke * p25D;
+      return [dgutD3, dgut25D, dpoolD3, dpool25D];
     };
 
-    const [k1a, k1ad, k1c] = derivatives(A1, A_adip, C2);
-    const [k2a, k2ad, k2c] = derivatives(
-      A1 + 0.5 * dt * k1a,
-      A_adip + 0.5 * dt * k1ad,
-      C2 + 0.5 * dt * k1c
+    const [k1g3, k1g25, k1p3, k1p25] = derivatives(gutD3, gut25D, poolD3, pool25D, vD3_0, v25_0);
+    const [k2g3, k2g25, k2p3, k2p25] = derivatives(
+      gutD3 + 0.5 * dt * k1g3,
+      gut25D + 0.5 * dt * k1g25,
+      poolD3 + 0.5 * dt * k1p3,
+      pool25D + 0.5 * dt * k1p25,
+      vD3_M,
+      v25_M
     );
-    const [k3a, k3ad, k3c] = derivatives(
-      A1 + 0.5 * dt * k2a,
-      A_adip + 0.5 * dt * k2ad,
-      C2 + 0.5 * dt * k2c
+    const [k3g3, k3g25, k3p3, k3p25] = derivatives(
+      gutD3 + 0.5 * dt * k2g3,
+      gut25D + 0.5 * dt * k2g25,
+      poolD3 + 0.5 * dt * k2p3,
+      pool25D + 0.5 * dt * k2p25,
+      vD3_M,
+      v25_M
     );
-    const [k4a, k4ad, k4c] = derivatives(
-      A1 + dt * k3a,
-      A_adip + dt * k3ad,
-      C2 + dt * k3c
+    const [k4g3, k4g25, k4p3, k4p25] = derivatives(
+      gutD3 + dt * k3g3,
+      gut25D + dt * k3g25,
+      poolD3 + dt * k3p3,
+      pool25D + dt * k3p25,
+      vD3_1,
+      v25_1
     );
 
-    A1 = Math.max(0, A1 + (dt / 6) * (k1a + 2 * k2a + 2 * k3a + k4a));
-    A_adip = Math.max(0, A_adip + (dt / 6) * (k1ad + 2 * k2ad + 2 * k3ad + k4ad));
-    C2 = Math.max(1, C2 + (dt / 6) * (k1c + 2 * k2c + 2 * k3c + k4c));
+    gutD3 = Math.max(0, gutD3 + (dt / 6) * (k1g3 + 2 * k2g3 + 2 * k3g3 + k4g3));
+    gut25D = Math.max(0, gut25D + (dt / 6) * (k1g25 + 2 * k2g25 + 2 * k3g25 + k4g25));
+    poolD3 = Math.max(0, poolD3 + (dt / 6) * (k1p3 + 2 * k2p3 + 2 * k3p3 + k4p3));
+    pool25D = Math.max(0, pool25D + (dt / 6) * (k1p25 + 2 * k2p25 + 2 * k3p25 + k4p25));
   }
 
   return { weeks, levels, adiposeReserve, freeD3, dailyEquivIU };
@@ -241,7 +290,11 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
 
   for (let iter = 0; iter < 24; iter++) {
     const mid = (low + high) / 2;
-    const eff = computeDoseEfficiency({ type: doseType, iu: isCalci ? Math.round(mid * 60) : mid });
+    const eff = computeDoseEfficiency({
+      type: doseType,
+      iu: isCalci ? Math.round(mid * 60) : mid,
+      ug: isCalci ? mid : Math.round(mid / 40)
+    });
     const events = [];
     for (let d = 0; d < loadDays; d += stepDays) {
       if (isCalci) {
@@ -274,7 +327,11 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
   if (maintDays > 0) {
     let mLow = 200;
     let mHigh = 20000;
-    const loadEff = computeDoseEfficiency({ type: doseType, iu: isCalci ? Math.round(bestLoad * 60) : bestLoad });
+    const loadEff = computeDoseEfficiency({
+      type: doseType,
+      iu: isCalci ? Math.round(bestLoad * 60) : bestLoad,
+      ug: isCalci ? bestLoad : Math.round(bestLoad / 40)
+    });
     const loadEvents = [];
     for (let d = 0; d < loadDays; d += stepDays) {
       if (isCalci) {
@@ -305,7 +362,11 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
   }
 
   const finalEvents = [];
-  const lEff = computeDoseEfficiency({ type: doseType, iu: isCalci ? Math.round(bestLoad * 60) : bestLoad });
+  const lEff = computeDoseEfficiency({
+    type: doseType,
+    iu: isCalci ? Math.round(bestLoad * 60) : bestLoad,
+    ug: isCalci ? bestLoad : Math.round(bestLoad / 40)
+  });
   for (let d = 0; d < loadDays; d += stepDays) {
     if (isCalci) {
       finalEvents.push({ day: d, type: "calcifediol", ug: bestLoad, iu: Math.round(bestLoad * 60), efficiency: lEff });
