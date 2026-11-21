@@ -72,6 +72,7 @@ jobs:
           shared-key: "windows-release"
           cache-on-failure: true
           cache-all-crates: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Instalar dependencias npm
         run: npm ci
@@ -115,7 +116,7 @@ jobs:
       - name: Configurar caché de Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: false
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Configurar Android SDK, NDK y Build-Tools
         run: |
@@ -150,6 +151,7 @@ jobs:
           shared-key: "android-arm64-release"
           cache-on-failure: true
           cache-all-crates: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Instalar dependencias npm
         run: npm ci

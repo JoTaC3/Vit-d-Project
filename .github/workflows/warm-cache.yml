@@ -1,0 +1,137 @@
+name: Calentar Caché CI (main)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src-tauri/Cargo.toml'
+      - 'src-tauri/Cargo.lock'
+      - 'package-lock.json'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/warm-cache.yml'
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: warm-cache-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  warm-windows:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - name: Optimizar entorno Windows (Defender + Git CRLF)
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.cargo"
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.rustup"
+          Add-MpPreference -ExclusionProcess "rustc.exe", "cargo.exe", "link.exe", "lld-link.exe"
+          git config --global core.autocrlf false
+          if (Get-Command lld-link -ErrorAction SilentlyContinue) {
+            "RUSTFLAGS=-C linker=lld-link" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          }
+
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Configurar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Caché de Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: "windows-release"
+          cache-on-failure: true
+          cache-all-crates: false
+
+      - name: Instalar dependencias npm
+        run: npm ci
+
+      - name: Compilar dependencias Rust (Windows Release)
+        run: cargo build --release --manifest-path src-tauri/Cargo.toml
+
+  warm-android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar caché de Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Configurar Android SDK, NDK y Build-Tools
+        run: |
+          SDKMGR="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          PKGS=()
+          if ! ls -d "$ANDROID_HOME/ndk/"* >/dev/null 2>&1; then
+            PKGS+=("ndk;27.2.12479018")
+          fi
+          if ! ls -d "$ANDROID_HOME/build-tools/3"[5-9].* >/dev/null 2>&1; then
+            PKGS+=("build-tools;35.0.0")
+          fi
+          if ! ls -d "$ANDROID_HOME/platforms/android-3"[5-9] >/dev/null 2>&1; then
+            PKGS+=("platforms;android-35")
+          fi
+          if [ ${#PKGS[@]} -gt 0 ]; then
+            yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
+            "$SDKMGR" --install "${PKGS[@]}"
+          fi
+          NDK_DIR=$(ls -d "$ANDROID_HOME/ndk/"* | sort -V | tail -n 1)
+          echo "NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+
+      - name: Configurar Rust + targets Android (ARM64)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Caché de Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: "android-arm64-release"
+          cache-on-failure: true
+          cache-all-crates: false
+
+      - name: Instalar dependencias npm
+        run: npm ci
+
+      - name: Inicializar y calentar compilación Android (ARM64)
+        run: |
+          npx tauri android init --ci --skip-targets-install
+          npx tauri android build --apk --target aarch64

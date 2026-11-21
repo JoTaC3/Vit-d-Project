@@ -161,6 +161,11 @@ export function buildBodyTimeline(totalDays, weightScale = 1.0) {
   });
 
   const timeline = new Array(totalDays + 2);
+  if (points.length === 1) {
+    const constantParams = computePhysiologicalParameters(store.appState.bodyProfile, baseWeight, baseFat);
+    timeline.fill(constantParams);
+    return timeline;
+  }
   let idx = 0;
 
   for (let d = 0; d <= totalDays + 1; d++) {
@@ -200,27 +205,30 @@ export function integrateTrajectory(totalDays, doseEvents, opts, bodyTimeline) {
   const etaKe = opts?.etaKe || 0;
   const endOnly = Boolean(opts?.endOnly);
   const levelsOnly = Boolean(opts?.levelsOnly);
+  const preAgg = opts?.preAggregated || null;
   const gainD3 = Math.exp(etaGain);
   const gain25D = Math.exp(0.5 * etaGain);
   const keMult = Math.exp(etaKe);
   const tlLen = bodyTimeline.length;
 
-  const dayGutD3Add = new Float64Array(totalDays + 1);
-  const dayGut25DAdd = new Float64Array(totalDays + 1);
+  const dayGutD3Add = preAgg ? preAgg.baseD3Add : new Float64Array(totalDays + 1);
+  const dayGut25DAdd = preAgg ? preAgg.base25DAdd : new Float64Array(totalDays + 1);
   const dayEquivIU = !endOnly && !levelsOnly ? new Float64Array(totalDays + 1) : null;
 
-  for (let i = 0; i < doseEvents.length; i++) {
-    const ev = doseEvents[i];
-    const d = ev.day;
-    if (d >= 0 && d <= totalDays) {
-      if (ev.type === "d3") {
-        const pDay = bodyTimeline[d < tlLen ? d : tlLen - 1];
-        const fCyp2r1 = 1 / (1 + CYP2R1_OBESITY_BETA * Math.max(0, pDay.fmRatio - 1));
-        dayGutD3Add[d] += ev.iu * ev.efficiency * PK_D3_ALPHA * fCyp2r1 * gainD3;
-        if (dayEquivIU) dayEquivIU[d] += ev.iu * ev.efficiency;
-      } else {
-        dayGut25DAdd[d] += ev.ug * ev.efficiency * PK_25D_ALPHA * gain25D;
-        if (dayEquivIU) dayEquivIU[d] += ev.iu || ev.ug * 60;
+  if (!preAgg) {
+    for (let i = 0; i < doseEvents.length; i++) {
+      const ev = doseEvents[i];
+      const d = ev.day;
+      if (d >= 0 && d <= totalDays) {
+        if (ev.type === "d3") {
+          const pDay = bodyTimeline[d < tlLen ? d : tlLen - 1];
+          const fCyp2r1 = 1 / (1 + CYP2R1_OBESITY_BETA * Math.max(0, pDay.fmRatio - 1));
+          dayGutD3Add[d] += ev.iu * ev.efficiency * PK_D3_ALPHA * fCyp2r1 * gainD3;
+          if (dayEquivIU) dayEquivIU[d] += ev.iu * ev.efficiency;
+        } else {
+          dayGut25DAdd[d] += ev.ug * ev.efficiency * PK_25D_ALPHA * gain25D;
+          if (dayEquivIU) dayEquivIU[d] += ev.iu || ev.ug * 60;
+        }
       }
     }
   }
@@ -244,8 +252,8 @@ export function integrateTrajectory(totalDays, doseEvents, opts, bodyTimeline) {
 
     if (s % 4 === 0) {
       if (dayInt <= totalDays) {
-        gutD3 += dayGutD3Add[dayInt];
-        gut25D += dayGut25DAdd[dayInt];
+        gutD3 += dayGutD3Add[dayInt] * (preAgg ? gainD3 : 1);
+        gut25D += dayGut25DAdd[dayInt] * (preAgg ? gain25D : 1);
       }
 
       if (!endOnly) {
@@ -393,27 +401,49 @@ export function calibrateIndividualMAP(totalDays, doseEvents, baselineNg, bodyTi
   const omegaK2 = MAP_OMEGA_KE * MAP_OMEGA_KE;
   const ruvAdd2 = RUV_ADD_NG * RUV_ADD_NG;
 
+  const baseD3Add = new Float64Array(maxExamDay + 1);
+  const base25DAdd = new Float64Array(maxExamDay + 1);
+  const tlLen = bodyTimeline.length;
+  for (let i = 0; i < doseEvents.length; i++) {
+    const ev = doseEvents[i];
+    const d = ev.day;
+    if (d >= 0 && d <= maxExamDay) {
+      if (ev.type === "d3") {
+        const pDay = bodyTimeline[d < tlLen ? d : tlLen - 1];
+        const fCyp2r1 = 1 / (1 + CYP2R1_OBESITY_BETA * Math.max(0, pDay.fmRatio - 1));
+        baseD3Add[d] += ev.iu * ev.efficiency * PK_D3_ALPHA * fCyp2r1;
+      } else {
+        base25DAdd[d] += ev.ug * ev.efficiency * PK_25D_ALPHA;
+      }
+    }
+  }
+  const preAggregated = { baseD3Add, base25DAdd };
+
   const objective = (etaG, etaK) => {
     const traj = integrateTrajectory(
       maxExamDay,
       doseEvents,
-      { baseline: baselineNg, etaGain: etaG, etaKe: etaK, levelsOnly: true },
+      { baseline: baselineNg, etaGain: etaG, etaKe: etaK, levelsOnly: true, preAggregated },
       bodyTimeline
     );
     let loss = (etaG * etaG) / omegaG2 + (etaK * etaK) / omegaK2;
+    let sqErrSum = 0;
     for (let i = 0; i < followUpExams.length; i++) {
       const ex = followUpExams[i];
       const pred = traj.levels[ex.day];
       const diff = pred - ex.valueNg;
+      sqErrSum += diff * diff;
       const sigmaVar = ruvAdd2 + (RUV_PROP * pred) * (RUV_PROP * pred);
       loss += (diff * diff) / sigmaVar + Math.log(sigmaVar);
     }
-    return loss;
+    return { loss, sqErrSum };
   };
 
   let bestG = 0;
   let bestK = 0;
-  let bestLoss = objective(0, 0);
+  const initEval = objective(0, 0);
+  let bestLoss = initEval.loss;
+  let bestSqErr = initEval.sqErrSum;
 
   const steps = [0.24, 0.12, 0.06, 0.03, 0.015, 0.005];
   const dirs = [
@@ -436,30 +466,19 @@ export function calibrateIndividualMAP(totalDays, doseEvents, baselineNg, bodyTi
         const candG = Math.min(0.75, Math.max(-0.75, bestG + dirs[dIdx][0] * step));
         const candK = Math.min(0.75, Math.max(-0.75, bestK + dirs[dIdx][1] * step));
         if (candG === bestG && candK === bestK) continue;
-        const candLoss = objective(candG, candK);
-        if (candLoss < bestLoss - 1e-6) {
+        const cand = objective(candG, candK);
+        if (cand.loss < bestLoss - 1e-6) {
           bestG = candG;
           bestK = candK;
-          bestLoss = candLoss;
+          bestLoss = cand.loss;
+          bestSqErr = cand.sqErrSum;
           improved = true;
         }
       }
     }
   }
 
-  const finalTraj = integrateTrajectory(
-    maxExamDay,
-    doseEvents,
-    { baseline: baselineNg, etaGain: bestG, etaKe: bestK, levelsOnly: true },
-    bodyTimeline
-  );
-  let sqErrSum = 0;
-  for (let i = 0; i < followUpExams.length; i++) {
-    const ex = followUpExams[i];
-    const diff = finalTraj.levels[ex.day] - ex.valueNg;
-    sqErrSum += diff * diff;
-  }
-  const rmseNg = Math.sqrt(sqErrSum / followUpExams.length);
+  const rmseNg = Math.sqrt(bestSqErr / followUpExams.length);
   const shrinkageFactor = 1 / Math.sqrt(1 + 0.85 * followUpExams.length);
 
   return {
@@ -507,22 +526,22 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
   let high = isCalci ? 4000 : 300000;
   let bestLoad = isCalci ? 266 : 2000;
 
+  const loadBuf = [];
+  for (let d = 0; d < loadDays; d += stepDays) {
+    loadBuf.push({ day: d, type: doseType, iu: 0, ug: 0, efficiency: 1 });
+  }
+
   for (let iter = 0; iter < 24; iter++) {
     const mid = (low + high) / 2;
-    const eff = computeDoseEfficiency({
-      type: doseType,
-      iu: isCalci ? Math.round(mid * 60) : mid,
-      ug: isCalci ? mid : Math.round(mid / 40)
-    });
-    const events = [];
-    for (let d = 0; d < loadDays; d += stepDays) {
-      if (isCalci) {
-        events.push({ day: d, type: "calcifediol", ug: mid, iu: Math.round(mid * 60), efficiency: eff });
-      } else {
-        events.push({ day: d, type: "d3", iu: mid, ug: Math.round(mid / 40), efficiency: eff });
-      }
+    const midIU = isCalci ? Math.round(mid * 60) : mid;
+    const midUg = isCalci ? mid : Math.round(mid / 40);
+    const eff = computeDoseEfficiency({ type: doseType, iu: midIU, ug: midUg });
+    for (let i = 0; i < loadBuf.length; i++) {
+      loadBuf[i].iu = midIU;
+      loadBuf[i].ug = midUg;
+      loadBuf[i].efficiency = eff;
     }
-    const traj = integrateTrajectory(loadDays, events, { baseline: baselineNg, etaGain, etaKe, endOnly: true }, timeline);
+    const traj = integrateTrajectory(loadDays, loadBuf, { baseline: baselineNg, etaGain, etaKe, endOnly: true }, timeline);
     const endLevel = traj.endLevel;
 
     if (endLevel < targetNg) {
@@ -542,33 +561,36 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
     bestLoad = Math.max(roundStep, Math.round(bestLoad / roundStep) * roundStep);
   }
 
-  const loadEff = computeDoseEfficiency({
-    type: doseType,
-    iu: isCalci ? Math.round(bestLoad * 60) : bestLoad,
-    ug: isCalci ? bestLoad : Math.round(bestLoad / 40)
-  });
-  const loadEvents = [];
-  for (let d = 0; d < loadDays; d += stepDays) {
-    if (isCalci) {
-      loadEvents.push({ day: d, type: "calcifediol", ug: bestLoad, iu: Math.round(bestLoad * 60), efficiency: loadEff });
-    } else {
-      loadEvents.push({ day: d, type: "d3", iu: bestLoad, ug: Math.round(bestLoad / 40), efficiency: loadEff });
-    }
+  const bestLoadIU = isCalci ? Math.round(bestLoad * 60) : bestLoad;
+  const bestLoadUg = isCalci ? bestLoad : Math.round(bestLoad / 40);
+  const loadEff = computeDoseEfficiency({ type: doseType, iu: bestLoadIU, ug: bestLoadUg });
+  for (let i = 0; i < loadBuf.length; i++) {
+    loadBuf[i].iu = bestLoadIU;
+    loadBuf[i].ug = bestLoadUg;
+    loadBuf[i].efficiency = loadEff;
   }
 
   let bestMaintIU = 2000;
+  let maintBuf = null;
   if (maintDays > 0) {
+    maintBuf = loadBuf.slice();
+    for (let d = loadDays; d < totalDays; d += 1) {
+      maintBuf.push({ day: d, type: "d3", iu: 0, ug: 0, efficiency: 1 });
+    }
+    const maintStart = loadBuf.length;
     let mLow = 200;
     let mHigh = 20000;
 
     for (let iter = 0; iter < 20; iter++) {
       const mMid = (mLow + mHigh) / 2;
+      const mUg = Math.round(mMid / 40);
       const mEff = computeDoseEfficiency({ type: "d3", iu: mMid });
-      const events = loadEvents.slice();
-      for (let d = loadDays; d < totalDays; d += 1) {
-        events.push({ day: d, type: "d3", iu: mMid, ug: Math.round(mMid / 40), efficiency: mEff });
+      for (let i = maintStart; i < maintBuf.length; i++) {
+        maintBuf[i].iu = mMid;
+        maintBuf[i].ug = mUg;
+        maintBuf[i].efficiency = mEff;
       }
-      const traj = integrateTrajectory(totalDays, events, { baseline: baselineNg, etaGain, etaKe, endOnly: true }, timeline);
+      const traj = integrateTrajectory(totalDays, maintBuf, { baseline: baselineNg, etaGain, etaKe, endOnly: true }, timeline);
       const finalLevel = traj.endLevel;
 
       if (finalLevel < targetNg) {
@@ -579,15 +601,17 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
       bestMaintIU = mMid;
     }
     bestMaintIU = Math.max(200, Math.round(bestMaintIU / 100) * 100);
+
+    const bestMaintUg = Math.round(bestMaintIU / 40);
+    const mEff = computeDoseEfficiency({ type: "d3", iu: bestMaintIU });
+    for (let i = maintStart; i < maintBuf.length; i++) {
+      maintBuf[i].iu = bestMaintIU;
+      maintBuf[i].ug = bestMaintUg;
+      maintBuf[i].efficiency = mEff;
+    }
   }
 
-  const finalEvents = loadEvents.slice();
-  const mEff = computeDoseEfficiency({ type: "d3", iu: bestMaintIU });
-  for (let d = loadDays; d < totalDays; d += 1) {
-    finalEvents.push({ day: d, type: "d3", iu: bestMaintIU, ug: Math.round(bestMaintIU / 40), efficiency: mEff });
-  }
-
-  const fullTraj = integrateTrajectory(totalDays, finalEvents, { baseline: baselineNg, etaGain, etaKe }, timeline);
+  const fullTraj = integrateTrajectory(totalDays, maintDays > 0 ? maintBuf : loadBuf, { baseline: baselineNg, etaGain, etaKe, levelsOnly: true }, timeline);
   let peakNg = fullTraj.levels[0] ?? baselineNg;
   for (let i = 1; i < fullTraj.levels.length; i++) {
     if (fullTraj.levels[i] > peakNg) peakNg = fullTraj.levels[i];
@@ -617,10 +641,10 @@ export function estimateSafeWeeksRK4(initialLevelNg, targetLevelNg, cal = null) 
   for (let d = 0; d < maxTestDays; d++) {
     events.push({ day: d, type: "d3", iu: 4000, ug: 100, efficiency: eff });
   }
-  const traj = integrateTrajectory(maxTestDays, events, { baseline: initialLevelNg, etaGain, etaKe }, timeline);
+  const traj = integrateTrajectory(maxTestDays, events, { baseline: initialLevelNg, etaGain, etaKe, levelsOnly: true }, timeline);
   for (let i = 0; i < traj.levels.length; i++) {
     if (traj.levels[i] >= targetLevelNg) {
-      return Math.max(1, Math.ceil(traj.weeks[i]));
+      return Math.max(1, Math.ceil(i / 7));
     }
   }
   return maxTestWeeks;
@@ -644,35 +668,41 @@ export function simulateCurrentState() {
   const z = 1.645 / Math.SQRT2;
   const baseErr = 1.645 * Math.hypot(RUV_ADD_NG, 0.06 * baselineNg);
 
+  const mainTraj = integrateTrajectory(
+    totalDays,
+    doseEvents,
+    { baseline: baselineNg, etaGain: calibration.etaGain, etaKe: calibration.etaKe },
+    bodyTimeline
+  );
+  const lowerRes = integrateTrajectory(
+    totalDays,
+    doseEvents,
+    {
+      baseline: Math.max(1, baselineNg - baseErr),
+      etaGain: calibration.etaGain - z * calibration.sigmaGain,
+      etaKe: calibration.etaKe + z * calibration.sigmaKe,
+      levelsOnly: true
+    },
+    bodyTimeline
+  );
+  const upperRes = integrateTrajectory(
+    totalDays,
+    doseEvents,
+    {
+      baseline: baselineNg + baseErr,
+      etaGain: calibration.etaGain + z * calibration.sigmaGain,
+      etaKe: calibration.etaKe - z * calibration.sigmaKe,
+      levelsOnly: true
+    },
+    bodyTimeline
+  );
+
   return {
     totalWeeks,
     initialParams: bodyTimeline[0],
     calibration,
-    mainTraj: integrateTrajectory(
-      totalDays,
-      doseEvents,
-      { baseline: baselineNg, etaGain: calibration.etaGain, etaKe: calibration.etaKe },
-      bodyTimeline
-    ),
-    lowerTraj: integrateTrajectory(
-      totalDays,
-      doseEvents,
-      {
-        baseline: Math.max(1, baselineNg - baseErr),
-        etaGain: calibration.etaGain - z * calibration.sigmaGain,
-        etaKe: calibration.etaKe + z * calibration.sigmaKe
-      },
-      bodyTimeline
-    ),
-    upperTraj: integrateTrajectory(
-      totalDays,
-      doseEvents,
-      {
-        baseline: baselineNg + baseErr,
-        etaGain: calibration.etaGain + z * calibration.sigmaGain,
-        etaKe: calibration.etaKe - z * calibration.sigmaKe
-      },
-      bodyTimeline
-    )
+    mainTraj,
+    lowerTraj: { weeks: mainTraj.weeks, levels: lowerRes.levels },
+    upperTraj: { weeks: mainTraj.weeks, levels: upperRes.levels }
   };
 }
