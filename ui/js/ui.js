@@ -115,6 +115,30 @@ function updateKPIs(traj, initialParams, totalWeeks, calibration = null) {
     : "";
   $id("kpiVdInfo").textContent = `Vd: ${initialParams.effectiveVolume.toFixed(1)} L • IMC: ${initialParams.bmi.toFixed(1)}${mapSuffix}`;
 
+  // Resúmenes vivos en acordeones 01-03
+  const bp = store.appState.bodyProfile || {};
+  const exams = store.appState.bloodMeasurements || [];
+  const anthro = store.appState.anthropometryLogs || [];
+  const sumProfEl = $id("summaryProfile");
+  if (sumProfEl) sumProfEl.textContent = `${Math.round(bp.weight || 0)} kg · ${bp.bodyFat || 0}% GC · ${totalWeeks} sem`;
+  const sumExEl = $id("summaryExams");
+  if (sumExEl) sumExEl.textContent = `${exams.length} ${exams.length === 1 ? "examen" : "exámenes"}`;
+  const sumAnEl = $id("summaryAnthro");
+  if (sumAnEl) sumAnEl.textContent = `${anthro.length} ${anthro.length === 1 ? "control" : "controles"}`;
+
+  // Micro-instrumento clínico 0-120 ng/mL en #kpiEndCard
+  const startPct = Math.max(0, Math.min(100, (startNg / 120) * 100));
+  const endPct = Math.max(0, Math.min(100, (endNg / 120) * 100));
+  const gStart = $id("gaugeStartDot");
+  const gEnd = $id("gaugeEndDot");
+  const gTrail = $id("gaugeTrail");
+  if (gStart) gStart.style.left = `${startPct}%`;
+  if (gEnd) gEnd.style.left = `${endPct}%`;
+  if (gTrail) {
+    gTrail.style.left = `${Math.min(startPct, endPct)}%`;
+    gTrail.style.width = `${Math.abs(endPct - startPct)}%`;
+  }
+
   const banner = $id("safetyBanner");
   if (banner) {
     banner.className = `status-banner ${endStatus.tone}`;

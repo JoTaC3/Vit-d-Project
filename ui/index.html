@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Vitamina D Simulator v0.3.18</title>
+  <title>Vitamina D Simulator v0.3.19</title>
   <link rel="stylesheet" href="vendor/katex/katex.min.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="chart.umd.min.js"></script>
@@ -12,19 +12,20 @@
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="4.5"></circle>
-          <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"></path>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M12 3a9 9 0 1 1-6.36 2.64" />
+          <path d="M12 7a5 5 0 1 1-3.54 1.46" opacity="0.65" />
+          <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
         </svg>
       </div>
       <div class="brand-text">
         <div class="brand-title-row">
           <h1>Vitamina D Simulator</h1>
-          <span class="version-chip">v0.3.18</span>
+          <span class="version-chip">v0.3.19</span>
         </div>      </div>
     </div>
 
-    <div class="topbar-controls">
+      <div class="topbar-controls">
       <div class="profile-dock">
         <div class="profile-select-group">
           <label for="profileSelector" class="micro-label">PERFIL</label>
@@ -88,7 +89,7 @@
               <span class="step-index">01</span>
               <div>
                 <h2>Perfil Fisiológico Base</h2>
-                <p class="hint">Modula el volumen de distribución (V<sub>d</sub>) y el secuestro en tejido adiposo.</p>
+                <span class="panel-summary" id="summaryProfile"></span>
               </div>
               <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
@@ -136,11 +137,6 @@
               <label for="simWeeks">Horizonte de proyección (semanas)</label>
               <input type="number" id="simWeeks" value="24" min="4" max="104" inputmode="numeric" />
             </div>
-
-            <div class="status-strip">
-              <span class="pulse-dot"></span>
-              <span>Sincronización local automática por perfil</span>
-            </div>
           </div>
 
           <div class="panel-card collapsed">
@@ -148,6 +144,7 @@
               <span class="step-index">02</span>
               <div>
                 <h2>Exámenes de Laboratorio</h2>
+                <span class="panel-summary" id="summaryExams"></span>
                 <p class="hint">En <strong id="examUnitLabel">ng/mL</strong>. Semana 0 fija la condición inicial C<sub>2</sub>(0).</p>
               </div>
               <span class="panel-chevron" aria-hidden="true">▾</span>
@@ -167,7 +164,7 @@
               <label for="examNote">Nota / Laboratorio</label>
               <input type="text" id="examNote" placeholder="Ej. Basal inicial, Control 3 meses..." />
             </div>
-            <button type="button" id="addExamBtn" class="btn-helio full-width">
+            <button type="button" id="addExamBtn" class="btn-instrument full-width">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>Registrar Examen</span>
             </button>
@@ -192,7 +189,7 @@
               <span class="step-index">03</span>
               <div>
                 <h2>Evolución Antropométrica</h2>
-                <p class="hint">Interpola día a día el volumen efectivo V<sub>d</sub>(t) ante cambios de peso y grasa.</p>
+                <span class="panel-summary" id="summaryAnthro"></span>
               </div>
               <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
@@ -236,7 +233,6 @@
               <span class="step-index">04</span>
               <div>
                 <h2>Esquema de Dosificación</h2>
-                <p class="hint">Superpone múltiples tramos de D<sub>3</sub> e Hidroferol (Calcifediol).</p>
               </div>
               <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
@@ -323,6 +319,12 @@
               <span class="telemetry-label">CIERRE HORIZONTE (SEM <span id="kpiEndWeekNum">24</span>)</span>
               <span class="telemetry-val" id="kpiEnd">--</span>
               <span class="telemetry-sub" id="kpiEndStatus">--</span>
+              <div class="clinical-gauge" aria-hidden="true" title="Posición sérica de Basal a Cierre (0–120 ng/mL)">
+                <div class="gauge-opt-zone"></div>
+                <div class="gauge-trail" id="gaugeTrail"></div>
+                <span class="gauge-dot start" id="gaugeStartDot"></span>
+                <span class="gauge-dot end" id="gaugeEndDot"></span>
+              </div>
             </div>
             <div class="telemetry-card">
               <span class="telemetry-label">APORTE MEDIO / VOLUMEN</span>
@@ -344,7 +346,7 @@
               </div>
               <div class="snapshot-bar">
                 <input type="text" id="simTitleInput" placeholder="Nombre (ej. Protocolo Diciembre)" aria-label="Nombre de simulación" />
-                <button type="button" id="saveSimBtn" class="btn-helio btn-sm">
+                <button type="button" id="saveSimBtn" class="btn-instrument btn-sm">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
                   <span>Guardar Memoria</span>
                 </button>
@@ -366,15 +368,6 @@
               </div>
             </div>
 
-            <!-- LIVE CROSSHAIR / TOUCH INSPECTOR READOUT -->
-            <div class="inspector-strip" id="inspectorStrip">
-              <div class="inspector-header">
-                <span class="inspector-badge" id="scrubberWeekLabel">SEM 0.0</span>
-                <div class="inspector-metrics" id="scrubberReadout">
-                  <div class="inspector-cell">
-                    <span class="inspector-cell-lbl">25(OH)D [mín–máx]</span>
-                    <span class="inspector-cell-val" id="scrubberConcVal">--</span>
-                  </div>
                   <div class="inspector-cell">
                     <span class="inspector-cell-lbl">Reserva D3 (kUI)</span>
                     <span class="inspector-cell-val" id="scrubberAdipVal">--</span>
@@ -391,6 +384,16 @@
             <div class="chart-container-lg">
               <canvas id="bloodChart"></canvas>
             </div>
+
+            <!-- LIVE CROSSHAIR / TOUCH INSPECTOR READOUT -->
+            <div class="inspector-strip" id="inspectorStrip">
+              <div class="inspector-header">
+                <span class="inspector-badge" id="scrubberWeekLabel">SEM 0.0</span>
+                <div class="inspector-metrics" id="scrubberReadout">
+                  <div class="inspector-cell">
+                    <span class="inspector-cell-lbl">25(OH)D [mín–máx]</span>
+                    <span class="inspector-cell-val" id="scrubberConcVal">--</span>
+                  </div>
           </div>
 
           <div class="two-col-charts">
@@ -399,7 +402,6 @@
                 <h3>Compartimento Adiposo vs. D3 Libre</h3>
                 <span class="mono-tag">kUI</span>
               </div>
-              <p class="hint">Secuestro lipofílico A<sub>adip</sub>(t) y pool circulante A<sub>1</sub>(t) sincronizados con el cursor.</p>
               <div class="chart-container-sm">
                 <canvas id="adiposeChart"></canvas>
               </div>
@@ -410,7 +412,6 @@
                 <h3>Aporte Equivalente Biodisponible</h3>
                 <span class="mono-tag">UI / día</span>
               </div>
-              <p class="hint">Aporte exógeno diario ajustado por biodisponibilidad y frecuencia de administración.</p>
               <div class="chart-container-sm">
                 <canvas id="intakeChart"></canvas>
               </div>

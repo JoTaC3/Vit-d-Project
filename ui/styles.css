@@ -90,14 +90,14 @@ body {
 .topbar {
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
-  padding: 12px 22px;
+  min-height: 54px;
+  padding: 8px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
-  position: sticky;
-  top: 0;
+  position: static;
   z-index: 40;
 }
 
@@ -337,11 +337,11 @@ button:focus-visible,
 
 /* TAB NAVIGATION */
 .tab-nav {
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
-  padding: 8px 22px;
+  background: transparent;
+  border-bottom: none;
+  padding: 0;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -412,14 +412,9 @@ button:focus-visible,
 
 @media (min-width: 1121px) {
   .grid-layout {
-    grid-template-columns: 0.44fr 0.56fr;
-    gap: 22px;
+    grid-template-columns: 350px minmax(0, 1fr);
+    gap: 20px;
     align-items: start;
-  }
-
-  .main-panel {
-    position: sticky;
-    top: 16px;
   }
 }
 
@@ -458,6 +453,34 @@ button:focus-visible,
   font-size: 1.04rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+
+.sidebar .panel-head {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sidebar .panel-chevron {
+  display: inline-flex;
+  margin-left: auto;
+  transition: transform 0.18s ease;
+}
+
+.sidebar .panel-card.collapsed > :not(.panel-head) {
+  display: none;
+}
+
+.sidebar .panel-card.collapsed .panel-chevron {
+  transform: rotate(-90deg);
+}
+
+.panel-summary {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 .panel-card h3 {
@@ -648,19 +671,28 @@ select:focus {
 .telemetry-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.telemetry-card {
+  gap: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.telemetry-card {
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border-color);
+  border-radius: 0;
   padding: 13px 15px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
   min-width: 0;
+}
+
+.telemetry-card:last-child {
+  border-right: none;
 }
 
 .telemetry-card.highlight-card {
@@ -697,8 +729,54 @@ select:focus {
 }
 
 #kpiEnd {
-  font-family: var(--font-display);
-  font-size: clamp(1.38rem, 2vw, 1.7rem);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.6rem, 2.2vw, 2.1rem);
+}
+
+.clinical-gauge {
+  position: relative;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--bg-well);
+}
+
+.gauge-opt-zone {
+  position: absolute;
+  left: 25%;
+  width: 25%;
+  top: 0;
+  bottom: 0;
+  background: var(--success-soft);
+  border-radius: 999px;
+}
+
+.gauge-trail {
+  position: absolute;
+  top: 2px;
+  height: 2px;
+  background: var(--serum);
+}
+
+.gauge-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.gauge-dot.start {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--text-muted);
+  background: var(--bg-card);
+}
+
+.gauge-dot.end {
+  width: 10px;
+  height: 10px;
+  background: var(--helio);
 }
 
 .telemetry-sub {
@@ -767,10 +845,11 @@ select:focus {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  padding: 8px 10px;
-  background: var(--bg-well);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  padding: 6px 0 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
   margin-bottom: 10px;
 }
 
@@ -800,11 +879,12 @@ select:focus {
 }
 
 .inspector-strip {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  margin-bottom: 12px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border-color);
+  border-radius: 0;
+  padding: 10px 0 0;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -842,11 +922,15 @@ select:focus {
 }
 
 .inspector-cell {
-  background: var(--bg-well);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0 10px;
   min-width: 0;
+}
+
+.inspector-cell + .inspector-cell {
+  border-left: 1px solid var(--border-color);
 }
 
 .inspector-cell-lbl {
@@ -905,7 +989,7 @@ select:focus {
 
 .chart-container-lg {
   position: relative;
-  height: 390px;
+  height: 430px;
   width: 100%;
   overflow: hidden;
 }
@@ -1030,6 +1114,15 @@ select:focus {
 .memory-actions {
   display: flex;
   gap: 8px;
+}
+
+
+#tab-memorias > .panel-card,
+#tab-ciencia .science-card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 4px 0;
 }
 
 /* SCIENCE TAB */
@@ -1338,6 +1431,13 @@ select:focus {
 }
 
 @media (max-width: 1120px) {
+  .tab-nav {
+    order: 3;
+    flex-basis: 100%;
+    border-top: 1px solid var(--border-color);
+    padding-top: 6px;
+  }
+
   .grid-layout,
   .planner-layout {
     grid-template-columns: 1fr;
@@ -1347,25 +1447,16 @@ select:focus {
     order: -1;
   }
 
-  .sidebar .panel-head {
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .sidebar .panel-chevron {
-    display: inline-flex;
-  }
-
-  .sidebar .panel-card.collapsed > :not(.panel-head) {
-    display: none;
-  }
-
-  .sidebar .panel-card.collapsed .panel-chevron {
-    transform: rotate(-90deg);
-  }
-
   .telemetry-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .telemetry-card:nth-child(2n) {
+    border-right: none;
+  }
+
+  .telemetry-card:nth-child(-n+2) {
+    border-bottom: 1px solid var(--border-color);
   }
 
   .two-col-charts {

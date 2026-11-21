@@ -30,34 +30,62 @@ export function invalidateChartThemeCache() {
   themePalette = null;
 }
 
+function hexToRgba(hex, alpha) {
+  const raw = String(hex || "").trim();
+  if (raw.startsWith("rgb")) {
+    const nums = raw.match(/[\d.]+/g);
+    if (nums && nums.length >= 3) {
+      return `rgba(${nums[0]}, ${nums[1]}, ${nums[2]}, ${alpha})`;
+    }
+  }
+  let clean = raw.replace(/^#/, "");
+  if (clean.length === 3) {
+    clean = clean.split("").map((c) => c + c).join("");
+  }
+  if (/^[0-9a-fA-F]{6}$/.test(clean)) {
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return `rgba(48, 105, 152, ${alpha})`;
+}
+
 function getThemePalette() {
   if (themePalette) return themePalette;
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const cs = getComputedStyle(document.documentElement);
+  const readVar = (name, fb) => cs.getPropertyValue(name).trim() || fb;
+
+  const surface = readVar("--bg-card", isDark ? "#172635" : "#FFFFFF");
+  const well = readVar("--bg-well", isDark ? "#111D29" : "#DEEAF5");
+  const text = readVar("--text-secondary", isDark ? "#BFD4E8" : "#2B455E");
+  const muted = readVar("--text-muted", isDark ? "#8BA8C4" : "#4C6985");
+  const helio = readVar("--helio", isDark ? "#F4D175" : "#306998");
+  const serum = readVar("--serum", isDark ? "#74B9FF" : "#1E4C73");
+  const viridian = readVar("--success", isDark ? "#4ADE80" : "#0E7A48");
+  const warning = readVar("--warning", isDark ? "#F4D175" : "#B45309");
+  const danger = readVar("--danger", isDark ? "#FF7B7B" : "#C91D22");
+  const monoFont = readVar("--font-mono", '"Cascadia Mono", Consolas, monospace');
+
   themePalette = {
     isDark,
-    text: isDark ? "#c5ccd6" : "#3f4650",
-    muted: isDark ? "#8892a0" : "#646c75",
-    grid: isDark ? "rgba(136, 146, 160, 0.13)" : "rgba(20, 23, 26, 0.08)",
-    crosshair: isDark ? "rgba(245, 158, 11, 0.75)" : "rgba(200, 100, 12, 0.75)",
-    serum: isDark ? "#38bdf8" : "#1d4ed8",
-    serumFill: isDark ? "rgba(56, 189, 248, 0.14)" : "rgba(29, 78, 216, 0.10)",
-    bandFill: isDark ? "rgba(56, 189, 248, 0.09)" : "rgba(29, 78, 216, 0.08)",
-    helio: isDark ? "#f59e0b" : "#c8640c",
-    helioFill: isDark ? "rgba(245, 158, 11, 0.15)" : "rgba(200, 100, 12, 0.12)",
-    viridian: isDark ? "#34d399" : "#15803d",
-    zones: isDark
-      ? {
-          def: "rgba(248, 113, 113, 0.07)",
-          insuf: "rgba(251, 191, 36, 0.06)",
-          opt: "rgba(52, 211, 153, 0.09)",
-          high: "rgba(251, 191, 36, 0.05)"
-        }
-      : {
-          def: "rgba(185, 28, 28, 0.05)",
-          insuf: "rgba(180, 83, 9, 0.05)",
-          opt: "rgba(21, 128, 61, 0.07)",
-          high: "rgba(180, 83, 9, 0.04)"
-        }
+    surface,
+    well,
+    text,
+    muted,
+    helio,
+    serum,
+    viridian,
+    warning,
+    danger,
+    monoFont,
+    grid: hexToRgba(muted, isDark ? 0.16 : 0.12),
+    crosshair: hexToRgba(helio, 0.78),
+    serumFill: hexToRgba(serum, isDark ? 0.14 : 0.10),
+    bandFill: hexToRgba(serum, isDark ? 0.10 : 0.08),
+    helioFill: hexToRgba(helio, isDark ? 0.16 : 0.12),
+    optZone: hexToRgba(viridian, isDark ? 0.10 : 0.08)
   };
   return themePalette;
 }
@@ -77,34 +105,44 @@ const clinicalZonesPlugin = {
     const y60 = toDisplayUnit(60, unit);
     const y100 = toDisplayUnit(100, unit);
 
-    const bands = [
-      { from: 0, to: y20, color: palette.zones.def, label: "DEFICIENCIA" },
-      { from: y20, to: y30, color: palette.zones.insuf, label: "INSUF." },
-      { from: y30, to: y60, color: palette.zones.opt, label: "RANGO ÓPTIMO" },
-      { from: y60, to: y100, color: palette.zones.high, label: "SUPERVISIÓN" }
-    ];
-
     ctx.save();
     ctx.beginPath();
     ctx.rect(chartArea.left, chartArea.top, chartArea.width, chartArea.height);
     ctx.clip();
 
-    bands.forEach((b) => {
-      const topPx = scales.y.getPixelForValue(b.to);
-      const bottomPx = scales.y.getPixelForValue(b.from);
-      const height = bottomPx - topPx;
-      if (height > 0) {
-        ctx.fillStyle = b.color;
-        ctx.fillRect(chartArea.left, topPx, chartArea.width, height);
+    const top60 = scales.y.getPixelForValue(y60);
+    const bot30 = scales.y.getPixelForValue(y30);
+    if (bot30 > top60) {
+      ctx.fillStyle = palette.optZone;
+      ctx.fillRect(chartArea.left, top60, chartArea.width, bot30 - top60);
+    }
 
-        if (height > 18) {
-          ctx.fillStyle = palette.muted;
-          ctx.font = '700 9px "JetBrains Mono", monospace';
-          ctx.textAlign = "right";
-          ctx.fillText(b.label, chartArea.right - 8, topPx + 12);
-        }
-      }
-    });
+    const px20 = scales.y.getPixelForValue(y20);
+    const px100 = scales.y.getPixelForValue(y100);
+
+    ctx.setLineDash([3, 4]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = hexToRgba(palette.danger, 0.45);
+    ctx.beginPath();
+    ctx.moveTo(chartArea.left, px20);
+    ctx.lineTo(chartArea.right, px20);
+    ctx.stroke();
+
+    ctx.strokeStyle = hexToRgba(palette.viridian, 0.45);
+    ctx.beginPath();
+    ctx.moveTo(chartArea.left, top60);
+    ctx.lineTo(chartArea.right, top60);
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+    ctx.font = `700 9px ${palette.monoFont}`;
+    ctx.textAlign = "right";
+    ctx.fillStyle = hexToRgba(palette.danger, 0.85);
+    ctx.fillText(`DEF. < ${y20.toFixed(0)}`, chartArea.right - 8, px20 - 4);
+    ctx.fillStyle = hexToRgba(palette.viridian, 0.9);
+    ctx.fillText("ÓPTIMO", chartArea.right - 8, top60 + 12);
+    ctx.fillStyle = hexToRgba(palette.danger, 0.85);
+    ctx.fillText(`LÍMITE ${y100.toFixed(0)}`, chartArea.right - 8, px100 - 4);
 
     ctx.restore();
   }
@@ -143,7 +181,7 @@ const verticalReticlePlugin = {
           ctx.fillStyle = palette.helio;
           ctx.fill();
           ctx.lineWidth = 2;
-          ctx.strokeStyle = palette.isDark ? "#0c0f14" : "#ffffff";
+          ctx.strokeStyle = palette.surface;
           ctx.stroke();
         }
       }
@@ -163,11 +201,11 @@ const verticalReticlePlugin = {
           ctx.fill();
 
           const label = `Pico ${peakVal.toFixed(1)} (S${peakWeek.toFixed(1)})`;
-          ctx.font = '700 10px "JetBrains Mono", monospace';
+          ctx.font = `700 10px ${palette.monoFont}`;
           const tw = ctx.measureText(label).width + 10;
           const tx = Math.min(chartArea.right - tw - 4, Math.max(chartArea.left + 4, px - tw / 2));
           const ty = Math.max(chartArea.top + 4, py - 24);
-          ctx.fillStyle = palette.isDark ? "#131820" : "#ffffff";
+          ctx.fillStyle = palette.surface;
           ctx.strokeStyle = palette.helio;
           ctx.lineWidth = 1;
           ctx.fillRect(tx, ty, tw, 17);
@@ -508,8 +546,8 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
         label: "Exámenes Reales",
         data: examPoints,
         type: "scatter",
-        backgroundColor: "#ef4444",
-        borderColor: colors.isDark ? "#0c0f14" : "#ffffff",
+        backgroundColor: colors.danger,
+        borderColor: colors.surface,
         borderWidth: 2,
         pointRadius: 6,
         pointHoverRadius: 8
@@ -530,7 +568,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
         type: "scatter",
         pointStyle: "rectRot",
         backgroundColor: colors.serum,
-        borderColor: colors.isDark ? "#0c0f14" : "#ffffff",
+        borderColor: colors.surface,
         borderWidth: 1,
         pointRadius: 5.5,
         pointHoverRadius: 7.5
@@ -547,7 +585,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
       {
         label: `Umbral Alto (${toxThresh} ${unit})`,
         data: [{ x: 0, y: toxThresh }, { x: totalWeeks, y: toxThresh }],
-        borderColor: "#ef4444",
+        borderColor: colors.danger,
         borderDash: [3, 4],
         borderWidth: 1.3,
         pointRadius: 0,
@@ -617,14 +655,14 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
               min: zoomRange.min,
               max: zoomRange.max,
               title: { display: true, text: "Tiempo (Semanas)", color: colors.text, font: { size: 11, weight: "600" } },
-              ticks: { color: colors.text, font: { family: "JetBrains Mono, monospace", size: 10 } },
+              ticks: { color: colors.text, font: { family: colors.monoFont, size: 10 } },
               grid: { color: colors.grid }
             },
             y: {
               min: 0,
               max: Math.ceil(maxDataY),
               title: { display: true, text: `Concentración Sérica (${unit})`, color: colors.text, font: { size: 11, weight: "600" } },
-              ticks: { color: colors.text, font: { family: "JetBrains Mono, monospace", size: 10 } },
+              ticks: { color: colors.text, font: { family: colors.monoFont, size: 10 } },
               grid: { color: colors.grid }
             }
           }
@@ -694,12 +732,12 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
               type: "linear",
               min: zoomRange.min,
               max: zoomRange.max,
-              ticks: { color: colors.text, font: { family: "JetBrains Mono, monospace", size: 10 } },
+              ticks: { color: colors.text, font: { family: colors.monoFont, size: 10 } },
               grid: { color: colors.grid }
             },
             y: {
               min: 0,
-              ticks: { color: colors.text, font: { family: "JetBrains Mono, monospace", size: 10 } },
+              ticks: { color: colors.text, font: { family: colors.monoFont, size: 10 } },
               grid: { color: colors.grid }
             }
           }
@@ -760,12 +798,12 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
               type: "linear",
               min: zoomRange.min,
               max: zoomRange.max,
-              ticks: { color: colors.text, font: { family: "JetBrains Mono, monospace", size: 10 } },
+              ticks: { color: colors.text, font: { family: colors.monoFont, size: 10 } },
               grid: { color: colors.grid }
             },
             y: {
               min: 0,
-              ticks: { color: colors.text, font: { family: "JetBrains Mono, monospace", size: 10 } },
+              ticks: { color: colors.text, font: { family: colors.monoFont, size: 10 } },
               grid: { color: colors.grid }
             }
           }
