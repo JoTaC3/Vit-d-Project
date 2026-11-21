@@ -25,20 +25,36 @@ export function getTodayDateString() {
   return `${y}-${m}-${d}`;
 }
 
+let cachedStartDateStr = null;
+let cachedStartDateMs = NaN;
+
 export function getDateForWeek(startDateStr, weekNum) {
   if (!startDateStr || typeof startDateStr !== "string") return "";
-  const parts = startDateStr.split("-");
-  if (parts.length !== 3) return "";
-  const y = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10) - 1;
-  const d = parseInt(parts[2], 10);
-  const base = new Date(y, m, d);
-  if (isNaN(base.getTime())) return "";
-  const target = new Date(base.getTime() + Math.round(Number(weekNum) * 7 * 86400000));
+  if (startDateStr !== cachedStartDateStr) {
+    cachedStartDateStr = startDateStr;
+    const parts = startDateStr.split("-");
+    if (parts.length !== 3) {
+      cachedStartDateMs = NaN;
+      return "";
+    }
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const base = new Date(y, m, d);
+    cachedStartDateMs = base.getTime();
+  }
+  if (isNaN(cachedStartDateMs)) return "";
+  const target = new Date(cachedStartDateMs + Math.round(Number(weekNum) * 7 * 86400000));
   const day = String(target.getDate()).padStart(2, "0");
   const month = String(target.getMonth() + 1).padStart(2, "0");
   const year = target.getFullYear();
   return `${day}/${month}/${year}`;
+}
+
+export function cloneData(obj) {
+  return typeof structuredClone === "function"
+    ? structuredClone(obj)
+    : JSON.parse(JSON.stringify(obj));
 }
 
 export function createDefaultProfileState() {
@@ -167,11 +183,15 @@ export function formatLevel(valNg, decimals = 1, unit = store.appState.unit) {
 }
 
 export function getInitialBaselineNg() {
-  const sortedExams = [...store.appState.bloodMeasurements].sort((a, b) => a.week - b.week);
-  const weekZero = sortedExams.find((e) => e.week === 0);
-  if (weekZero) return weekZero.valueNg;
-  if (sortedExams.length > 0) return sortedExams[0].valueNg;
-  return 22.0;
+  const exams = store.appState.bloodMeasurements;
+  if (!exams || exams.length === 0) return 22.0;
+  let minExam = exams[0];
+  for (let i = 0; i < exams.length; i++) {
+    const ex = exams[i];
+    if (ex.week === 0) return ex.valueNg;
+    if (ex.week < minExam.week) minExam = ex;
+  }
+  return minExam.valueNg;
 }
 
 export function getActiveProfile() {
@@ -198,8 +218,8 @@ export function autoSaveCurrentState() {
   }
   const active = getActiveProfile();
   if (active) {
-    active.state = JSON.parse(JSON.stringify(store.appState));
-    active.savedSimulations = JSON.parse(JSON.stringify(store.savedSimulations));
+    active.state = cloneData(store.appState);
+    active.savedSimulations = cloneData(store.savedSimulations);
     active.updatedAt = new Date().toISOString();
     persistProfilesStore();
   }

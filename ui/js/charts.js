@@ -13,6 +13,11 @@ let activeCursorWeek = null;
 let zoomRange = { min: 0, max: null };
 let themePalette = null;
 let rafPending = false;
+let inspectorRefs = null;
+
+function round2(v) {
+  return Math.round(v * 100) / 100;
+}
 let chartsDirty = false;
 
 export const chartLayers = {
@@ -144,15 +149,10 @@ const verticalReticlePlugin = {
       }
 
       // Anotación discreta del pico máximo proyectado
-      const levels = lastSimSnapshot.mainTraj.levels;
-      const weeks = lastSimSnapshot.mainTraj.weeks;
-      if (levels.length > 0 && scales.y) {
-        let peakIdx = 0;
-        for (let i = 1; i < levels.length; i++) {
-          if (levels[i] > levels[peakIdx]) peakIdx = i;
-        }
-        const peakWeek = weeks[peakIdx];
-        const peakVal = toDisplayUnit(levels[peakIdx], store.appState.unit);
+      const peak = lastSimSnapshot.peak;
+      if (peak && scales.y) {
+        const peakWeek = peak.week;
+        const peakVal = toDisplayUnit(peak.levelNg, store.appState.unit);
         const px = scales.x.getPixelForValue(peakWeek);
         const py = scales.y.getPixelForValue(peakVal);
         if (px >= chartArea.left && px <= chartArea.right && py >= chartArea.top && py <= chartArea.bottom) {
@@ -188,6 +188,20 @@ function findClosestWeekIndex(weeksArr, targetWeek) {
   return Math.max(0, Math.min(weeksArr.length - 1, Math.round(targetWeek * 7)));
 }
 
+function getInspectorRefs() {
+  if (!inspectorRefs) {
+    inspectorRefs = {
+      weekBadge: document.getElementById("scrubberWeekLabel"),
+      concVal: document.getElementById("scrubberConcVal"),
+      adipVal: document.getElementById("scrubberAdipVal"),
+      intakeVal: document.getElementById("scrubberIntakeVal"),
+      readout: document.getElementById("scrubberReadout"),
+      scrubber: document.getElementById("chartScrubber")
+    };
+  }
+  return inspectorRefs;
+}
+
 function updateInspectorUI(week) {
   if (!lastSimSnapshot) return;
   const { mainTraj, lowerTraj, upperTraj } = lastSimSnapshot;
@@ -202,12 +216,7 @@ function updateInspectorUI(week) {
   const adip = mainTraj.adiposeReserve[idx].toFixed(1);
   const intake = mainTraj.dailyEquivIU[idx].toLocaleString();
 
-  const weekBadge = document.getElementById("scrubberWeekLabel");
-  const concVal = document.getElementById("scrubberConcVal");
-  const adipVal = document.getElementById("scrubberAdipVal");
-  const intakeVal = document.getElementById("scrubberIntakeVal");
-  const readout = document.getElementById("scrubberReadout");
-  const scrubber = document.getElementById("chartScrubber");
+  const { weekBadge, concVal, adipVal, intakeVal, readout, scrubber } = getInspectorRefs();
 
   const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, w);
   if (weekBadge) weekBadge.textContent = `SEM ${w.toFixed(1)}${dateStr ? " • " + dateStr : ""}`;
@@ -341,45 +350,49 @@ export function adjustChartZoom(action, totalWeeks) {
     }
   }
 
-  if (lastSimSnapshot) {
-    renderCharts(
-      lastSimSnapshot.mainTraj,
-      lastSimSnapshot.lowerTraj,
-      lastSimSnapshot.upperTraj,
-      lastSimSnapshot.totalWeeks
-    );
-  }
+  rerenderChartsFromSnapshot();
 }
 
 export function toggleChartLayer(layerKey) {
   if (layerKey in chartLayers) {
     chartLayers[layerKey] = !chartLayers[layerKey];
   }
-  if (lastSimSnapshot) {
-    renderCharts(
-      lastSimSnapshot.mainTraj,
-      lastSimSnapshot.lowerTraj,
-      lastSimSnapshot.upperTraj,
-      lastSimSnapshot.totalWeeks
-    );
-  }
+  rerenderChartsFromSnapshot();
   return chartLayers[layerKey];
+}
+
+export function rerenderChartsFromSnapshot() {
+  if (!lastSimSnapshot) return false;
+  renderCharts(
+    lastSimSnapshot.mainTraj,
+    lastSimSnapshot.lowerTraj,
+    lastSimSnapshot.upperTraj,
+    lastSimSnapshot.totalWeeks
+  );
+  return true;
 }
 
 export function flushChartsIfDirty() {
   if (chartsDirty && lastSimSnapshot) {
     chartsDirty = false;
-    renderCharts(
-      lastSimSnapshot.mainTraj,
-      lastSimSnapshot.lowerTraj,
-      lastSimSnapshot.upperTraj,
-      lastSimSnapshot.totalWeeks
-    );
+    rerenderChartsFromSnapshot();
   }
 }
 
 export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
-  lastSimSnapshot = { mainTraj, lowerTraj, upperTraj, totalWeeks };
+  let peak = null;
+  if (mainTraj?.levels?.length > 0) {
+    let peakIdx = 0;
+    for (let i = 1; i < mainTraj.levels.length; i++) {
+      if (mainTraj.levels[i] > mainTraj.levels[peakIdx]) peakIdx = i;
+    }
+    peak = {
+      idx: peakIdx,
+      week: mainTraj.weeks[peakIdx],
+      levelNg: mainTraj.levels[peakIdx]
+    };
+  }
+  lastSimSnapshot = { mainTraj, lowerTraj, upperTraj, totalWeeks, peak };
   const bloodCanvas = document.getElementById("bloodChart");
   if (bloodCanvas && bloodCanvas.offsetParent === null) {
     chartsDirty = true;
@@ -394,11 +407,11 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
     zoomRange = { min: 0, max: totalWeeks };
   }
 
-  const scrubber = document.getElementById("chartScrubber");
+  const scrubber = getInspectorRefs().scrubber;
   if (scrubber) {
     scrubber.max = String(totalWeeks);
     if (activeCursorWeek == null || activeCursorWeek > totalWeeks) {
-      activeCursorWeek = Number((totalWeeks / 2).toFixed(2));
+      activeCursorWeek = round2(totalWeeks / 2);
     }
     scrubber.value = String(activeCursorWeek);
     updateInspectorUI(activeCursorWeek);
@@ -406,24 +419,24 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
 
   const mainPoints = mainTraj.weeks.map((w, i) => ({
     x: w,
-    y: Number(toDisplayUnit(mainTraj.levels[i], unit).toFixed(2))
+    y: round2(toDisplayUnit(mainTraj.levels[i], unit))
   }));
 
   const lowerPoints = lowerTraj.weeks.map((w, i) => ({
     x: w,
-    y: Number(toDisplayUnit(lowerTraj.levels[i], unit).toFixed(2))
+    y: round2(toDisplayUnit(lowerTraj.levels[i], unit))
   }));
 
   const upperPoints = upperTraj.weeks.map((w, i) => ({
     x: w,
-    y: Number(toDisplayUnit(upperTraj.levels[i], unit).toFixed(2))
+    y: round2(toDisplayUnit(upperTraj.levels[i], unit))
   }));
 
   const examPoints = store.appState.bloodMeasurements
     .filter((e) => e.week <= totalWeeks)
     .map((e) => ({
       x: e.week,
-      y: Number(toDisplayUnit(e.valueNg, unit).toFixed(2)),
+      y: round2(toDisplayUnit(e.valueNg, unit)),
       note: e.note || "Examen clínico"
     }));
 
@@ -613,7 +626,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
     const adipDatasets = [
       {
         label: "Reserva Adiposa (kUI)",
-        data: mainTraj.weeks.map((w, i) => ({ x: w, y: Number(mainTraj.adiposeReserve[i].toFixed(2)) })),
+        data: mainTraj.weeks.map((w, i) => ({ x: w, y: round2(mainTraj.adiposeReserve[i]) })),
         borderColor: colors.helio,
         backgroundColor: colors.helioFill,
         borderWidth: 2,
@@ -623,7 +636,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
       },
       {
         label: "Pool Circulante D3 (kUI)",
-        data: mainTraj.weeks.map((w, i) => ({ x: w, y: Number(mainTraj.freeD3[i].toFixed(2)) })),
+        data: mainTraj.weeks.map((w, i) => ({ x: w, y: round2(mainTraj.freeD3[i]) })),
         borderColor: colors.viridian,
         borderWidth: 2,
         pointRadius: 0,

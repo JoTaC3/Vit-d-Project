@@ -47,6 +47,7 @@ async fn check_and_install_update(_install: bool) -> Result<UpdateInfo, String> 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  #[cfg_attr(not(desktop), allow(unused_mut))]
   let mut builder = tauri::Builder::default();
 
   #[cfg(desktop)]

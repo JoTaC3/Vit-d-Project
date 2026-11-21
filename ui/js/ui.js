@@ -15,7 +15,8 @@ import {
   persistProfilesStore,
   autoSaveCurrentState,
   getDateForWeek,
-  getTodayDateString
+  getTodayDateString,
+  cloneData
 } from "./state.js";
 import { solveDoseWithRK4, estimateSafeWeeksRK4, simulateCurrentState } from "./pkEngine.js";
 import { renderCharts, flushChartsIfDirty } from "./charts.js";
@@ -410,6 +411,7 @@ export function generateTargetPlans() {
     }
   ];
 
+  const frag = document.createDocumentFragment();
   strategies.forEach((strat) => {
     const solved = solveDoseWithRK4(
       targetLevelNg,
@@ -481,8 +483,9 @@ export function generateTargetPlans() {
       showToast(`Protocolo "${strat.title}" aplicado`);
     });
 
-    resultsGrid.appendChild(card);
+    frag.appendChild(card);
   });
+  resultsGrid.appendChild(frag);
 }
 
 export function saveCurrentSimulationToMemory() {
@@ -497,7 +500,7 @@ export function saveCurrentSimulationToMemory() {
     title,
     profileName: activeProf ? activeProf.name : "Perfil",
     createdAt: new Date().toISOString(),
-    stateSnapshot: JSON.parse(JSON.stringify(store.appState))
+    stateSnapshot: cloneData(store.appState)
   });
 
   autoSaveCurrentState();
@@ -509,6 +512,30 @@ export function saveCurrentSimulationToMemory() {
 export function renderMemoriesList() {
   const grid = $id("memoriesGrid");
   if (!grid) return;
+  if (grid.dataset.delegated !== "true") {
+    grid.dataset.delegated = "true";
+    grid.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const item = store.savedSimulations.find((m) => m.id === id);
+      if (action === "load" && item) {
+        store.appState = sanitizeState(item.stateSnapshot);
+        autoSaveCurrentState();
+        syncUIWithState();
+        runSimulationAndRender();
+        switchTab("simulador");
+        showToast(`Escenario "${item.title}" restaurado`);
+      } else if (action === "delete" && item) {
+        store.savedSimulations = store.savedSimulations.filter((m) => m.id !== id);
+        autoSaveCurrentState();
+        renderMemoriesList();
+        showToast("Memoria eliminada");
+      }
+    });
+  }
+
   grid.innerHTML = "";
 
   if (store.savedSimulations.length === 0) {
@@ -516,6 +543,7 @@ export function renderMemoriesList() {
     return;
   }
 
+  const frag = document.createDocumentFragment();
   store.savedSimulations.forEach((item) => {
     const snap = item.stateSnapshot;
     const bp = snap.bodyProfile;
@@ -533,29 +561,14 @@ export function renderMemoriesList() {
         <p class="hint mt-8">${snap.doses.length} tramo(s) de dosis • ${snap.bloodMeasurements.length} examen(es)</p>
       </div>
       <div class="memory-actions">
-        <button type="button" class="btn-helio btn-sm load-mem-btn">Cargar Escenario</button>
-        <button type="button" class="btn-danger-ghost btn-sm del-mem-btn" aria-label="Eliminar memoria">Eliminar</button>
+        <button type="button" class="btn-helio btn-sm load-mem-btn" data-action="load" data-id="${escapeHTML(item.id)}">Cargar Escenario</button>
+        <button type="button" class="btn-danger-ghost btn-sm del-mem-btn" data-action="delete" data-id="${escapeHTML(item.id)}" aria-label="Eliminar memoria">Eliminar</button>
       </div>
     `;
 
-    card.querySelector(".load-mem-btn").addEventListener("click", () => {
-      store.appState = sanitizeState(item.stateSnapshot);
-      autoSaveCurrentState();
-      syncUIWithState();
-      runSimulationAndRender();
-      switchTab("simulador");
-      showToast(`Escenario "${item.title}" restaurado`);
-    });
-
-    card.querySelector(".del-mem-btn").addEventListener("click", () => {
-      store.savedSimulations = store.savedSimulations.filter((m) => m.id !== item.id);
-      autoSaveCurrentState();
-      renderMemoriesList();
-      showToast("Memoria eliminada");
-    });
-
-    grid.appendChild(card);
+    frag.appendChild(card);
   });
+  grid.appendChild(frag);
 }
 
 export async function exportMemoriesJSON() {
@@ -638,13 +651,15 @@ export function renderProfileSelector() {
   const sel = $id("profileSelector");
   if (!sel) return;
   sel.innerHTML = "";
+  const frag = document.createDocumentFragment();
   store.profilesStore.profiles.forEach((p) => {
     const opt = document.createElement("option");
     opt.value = p.id;
     opt.textContent = p.name;
     if (p.id === store.profilesStore.activeProfileId) opt.selected = true;
-    sel.appendChild(opt);
+    frag.appendChild(opt);
   });
+  sel.appendChild(frag);
 }
 
 let renamingProfileId = null;
@@ -654,6 +669,7 @@ export function renderProfilesModalList(onActivate, onRename, onDelete) {
   if (!container) return;
   container.innerHTML = "";
 
+  const frag = document.createDocumentFragment();
   store.profilesStore.profiles.forEach((p) => {
     const isActive = p.id === store.profilesStore.activeProfileId;
     const bp = p.state?.bodyProfile || {};
@@ -681,8 +697,9 @@ export function renderProfilesModalList(onActivate, onRename, onDelete) {
         </div>
       `;
     }
-    container.appendChild(item);
+    frag.appendChild(item);
   });
+  container.appendChild(frag);
 
   if (renamingProfileId) {
     const input = container.querySelector(".profile-rename-input");

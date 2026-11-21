@@ -200,7 +200,7 @@ function bindUIEvents() {
   $id("themeToggle")?.addEventListener("click", () => {
     const current = document.documentElement.getAttribute("data-theme");
     applyTheme(current === "dark" ? "light" : "dark");
-    safeRenderAll();
+    if (!chartsMod.rerenderChartsFromSnapshot?.()) safeRenderAll();
   });
 
   document.querySelectorAll("#unitToggle button").forEach((btn) => {
