@@ -1,67 +1,68 @@
 :root {
-  /* Heliobiological & Clinical Lab Instrument — Light Mode */
-  --bg-app: #f4f1ea;
-  --bg-card: #ffffff;
-  --bg-well: #ece8de;
-  --bg-input: #faf8f4;
-  --border-color: #d6d0c2;
-  --border-strong: #b8b09e;
-  --text-primary: #14171a;
-  --text-secondary: #3f4650;
-  --text-muted: #646c75;
+  /* Propuesta 07 — Python REPL con Figura Fija (Light Mode) */
+  --bg-app: #F3F8FC;
+  --bg-card: #FFFFFF;
+  --bg-well: #DEEAF5;
+  --bg-input: #F7FAFD;
+  --border-color: #A8C7E2;
+  --border-strong: #7BA6CC;
+  --text-primary: #112233;
+  --text-secondary: #2B455E;
+  --text-muted: #4C6985;
 
   /* Domain-meaningful accents */
-  --helio: #c8640c;
-  --helio-hover: #a85107;
-  --helio-soft: rgba(200, 100, 12, 0.11);
-  --helio-ring: rgba(200, 100, 12, 0.28);
+  --helio: #306998;
+  --helio-hover: #245278;
+  --helio-soft: rgba(48, 105, 152, 0.12);
+  --helio-ring: rgba(48, 105, 152, 0.28);
 
-  --serum: #1d4ed8;
-  --serum-soft: rgba(29, 78, 216, 0.10);
+  --serum: #1E4C73;
+  --serum-soft: rgba(30, 76, 115, 0.12);
 
-  --success: #15803d;
-  --success-soft: rgba(21, 128, 61, 0.11);
-  --warning: #b45309;
+  --success: #0E7A48;
+  --success-soft: rgba(14, 122, 72, 0.11);
+  --warning: #B45309;
   --warning-soft: rgba(180, 83, 9, 0.12);
-  --danger: #b91c1c;
-  --danger-soft: rgba(185, 28, 28, 0.11);
+  --danger: #C91D22;
+  --danger-soft: rgba(201, 29, 34, 0.11);
 
-  --shadow-xs: 0 1px 2px rgba(20, 23, 26, 0.05);
-  --shadow-sm: 0 2px 8px rgba(20, 23, 26, 0.06);
-  --shadow-md: 0 12px 28px rgba(20, 23, 26, 0.14);
+  --shadow-xs: 0 1px 2px rgba(17, 34, 51, 0.05);
+  --shadow-sm: 0 2px 8px rgba(17, 34, 51, 0.06);
+  --shadow-md: 0 12px 28px rgba(17, 34, 51, 0.14);
 
-  --radius-md: 8px;
-  --radius-sm: 5px;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+  --font-sans: Tahoma, "Segoe UI Variable", sans-serif;
+  --font-mono: "Cascadia Code", Consolas, monospace;
 }
 
 [data-theme="dark"] {
-  /* Nocturnal Spectrophotometer — Dark Mode */
-  --bg-app: #0c0f14;
-  --bg-card: #131820;
-  --bg-well: #0a0d12;
-  --bg-input: #0e131a;
-  --border-color: #242d3b;
-  --border-strong: #374357;
-  --text-primary: #f2efe9;
-  --text-secondary: #c5ccd6;
-  --text-muted: #8892a0;
+  /* Propuesta 07 — Python REPL con Figura Fija (Dark Mode) */
+  --bg-app: #223243;
+  --bg-card: #172635;
+  --bg-well: #111D29;
+  --bg-input: #142230;
+  --border-color: #36506B;
+  --border-strong: #4C6E91;
+  --text-primary: #EDF4FB;
+  --text-secondary: #BFD4E8;
+  --text-muted: #8BA8C4;
 
-  --helio: #f59e0b;
-  --helio-hover: #fbbf24;
-  --helio-soft: rgba(245, 158, 11, 0.14);
-  --helio-ring: rgba(245, 158, 11, 0.32);
+  --helio: #F4D175;
+  --helio-hover: #F7DC94;
+  --helio-soft: rgba(244, 209, 117, 0.15);
+  --helio-ring: rgba(244, 209, 117, 0.34);
+  --btn-ink: #0D2B45;
 
-  --serum: #38bdf8;
-  --serum-soft: rgba(56, 189, 248, 0.14);
+  --serum: #74B9FF;
+  --serum-soft: rgba(116, 185, 255, 0.15);
 
-  --success: #34d399;
-  --success-soft: rgba(52, 211, 153, 0.13);
-  --warning: #fbbf24;
-  --warning-soft: rgba(251, 191, 36, 0.13);
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.14);
+  --success: #4ADE80;
+  --success-soft: rgba(74, 222, 128, 0.14);
+  --warning: #F4D175;
+  --warning-soft: rgba(244, 209, 117, 0.14);
+  --danger: #FF7B7B;
+  --danger-soft: rgba(255, 123, 123, 0.15);
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-sm: 0 3px 10px rgba(0, 0, 0, 0.4);
@@ -276,7 +277,8 @@ button:focus-visible,
 }
 
 [data-theme="dark"] .btn-helio {
-  color: #111317;
+  background: #F4D175;
+  color: #0D2B45;
   font-weight: 750;
 }
 
@@ -401,6 +403,23 @@ button:focus-visible,
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+}
+
+@media (min-width: 1121px) {
+  .grid-layout {
+    grid-template-columns: 0.45fr 0.55fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .main-panel {
+    position: sticky;
+    top: 16px;
+  }
+
+  .sidebar .panel-card {
+    border-left: 3px solid var(--helio);
+  }
 }
 
 /* INSTRUMENT CARDS */
