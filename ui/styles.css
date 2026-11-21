@@ -1,34 +1,34 @@
 :root {
-  /* Solario Mineral — Modo Día Amigable */
-  --bg-app: #F6F1E7;
-  --bg-card: #FFFDF8;
-  --bg-well: #ECE5D8;
-  --bg-input: #FFFFFF;
-  --border-color: #DCD2C0;
-  --border-strong: #BFB29B;
-  --text-primary: #221C17;
-  --text-secondary: #51463C;
-  --text-muted: #7C6E60;
+  /* Paleta Propuesta 07 (Día) */
+  --bg-app: #F3F8FC;
+  --bg-card: #FFFFFF;
+  --bg-well: #DEEAF5;
+  --bg-input: #F7FAFD;
+  --border-color: #A8C7E2;
+  --border-strong: #7BA6CC;
+  --text-primary: #112233;
+  --text-secondary: #2B455E;
+  --text-muted: #4C6985;
 
-  --helio: #C86016;
-  --helio-hover: #A84D0E;
-  --helio-soft: rgba(200, 96, 22, 0.11);
-  --helio-ring: rgba(200, 96, 22, 0.26);
-  --btn-ink: #FFFDF8;
+  --helio: #306998;
+  --helio-hover: #245278;
+  --helio-soft: rgba(48, 105, 152, 0.12);
+  --helio-ring: rgba(48, 105, 152, 0.28);
+  --btn-ink: #FFFFFF;
 
-  --serum: #1D6885;
-  --serum-soft: rgba(29, 104, 133, 0.11);
+  --serum: #1E4C73;
+  --serum-soft: rgba(30, 76, 115, 0.12);
 
-  --success: #1E7A55;
-  --success-soft: rgba(30, 122, 85, 0.11);
-  --warning: #B5620A;
-  --warning-soft: rgba(181, 98, 10, 0.12);
-  --danger: #C0392B;
-  --danger-soft: rgba(192, 57, 43, 0.11);
+  --success: #0E7A48;
+  --success-soft: rgba(14, 122, 72, 0.11);
+  --warning: #B45309;
+  --warning-soft: rgba(180, 83, 9, 0.12);
+  --danger: #C91D22;
+  --danger-soft: rgba(201, 29, 34, 0.11);
 
-  --shadow-xs: 0 1px 2px rgba(34, 28, 23, 0.04);
-  --shadow-sm: 0 2px 6px rgba(34, 28, 23, 0.05);
-  --shadow-md: 0 12px 26px rgba(34, 28, 23, 0.12);
+  --shadow-xs: 0 1px 2px rgba(17, 34, 51, 0.05);
+  --shadow-sm: 0 2px 8px rgba(17, 34, 51, 0.06);
+  --shadow-md: 0 12px 28px rgba(17, 34, 51, 0.14);
 
   --radius-md: 12px;
   --radius-sm: 8px;
@@ -39,36 +39,36 @@
 }
 
 [data-theme="dark"] {
-  /* Obsidiana Cálida / Umber Ahumado — Modo Oscuro No Genérico */
-  --bg-app: #1A1614;
-  --bg-card: #241F1C;
-  --bg-well: #14110F;
-  --bg-input: #1C1815;
-  --border-color: #38302A;
-  --border-strong: #53473E;
-  --text-primary: #F5EFE6;
-  --text-secondary: #D3C6B7;
-  --text-muted: #9B8D7E;
+  /* Paleta Propuesta 07 (Noche) */
+  --bg-app: #223243;
+  --bg-card: #172635;
+  --bg-well: #111D29;
+  --bg-input: #142230;
+  --border-color: #36506B;
+  --border-strong: #4C6E91;
+  --text-primary: #EDF4FB;
+  --text-secondary: #BFD4E8;
+  --text-muted: #8BA8C4;
 
-  --helio: #F0A33B;
-  --helio-hover: #F7B95E;
-  --helio-soft: rgba(240, 163, 59, 0.14);
-  --helio-ring: rgba(240, 163, 59, 0.30);
-  --btn-ink: #1D150E;
+  --helio: #F4D175;
+  --helio-hover: #F7DC94;
+  --helio-soft: rgba(244, 209, 117, 0.15);
+  --helio-ring: rgba(244, 209, 117, 0.34);
+  --btn-ink: #0D2B45;
 
-  --serum: #67B8D6;
-  --serum-soft: rgba(103, 184, 214, 0.14);
+  --serum: #74B9FF;
+  --serum-soft: rgba(116, 185, 255, 0.15);
 
-  --success: #5CC98A;
-  --success-soft: rgba(92, 201, 138, 0.14);
-  --warning: #F0B44C;
-  --warning-soft: rgba(240, 180, 76, 0.14);
-  --danger: #F07167;
-  --danger-soft: rgba(240, 113, 103, 0.15);
+  --success: #4ADE80;
+  --success-soft: rgba(74, 222, 128, 0.14);
+  --warning: #F4D175;
+  --warning-soft: rgba(244, 209, 117, 0.14);
+  --danger: #FF7B7B;
+  --danger-soft: rgba(255, 123, 123, 0.15);
 
-  --shadow-xs: 0 1px 2px rgba(10, 7, 5, 0.28);
-  --shadow-sm: 0 2px 8px rgba(10, 7, 5, 0.34);
-  --shadow-md: 0 14px 30px rgba(10, 7, 5, 0.52);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 3px 10px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 14px 32px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -1123,36 +1123,31 @@ select:focus {
   border-bottom: none;
 }
 
-.eq-expr {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 3px;
+.eq-katex {
+  flex: 1;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
 }
 
-.eq-expr var {
-  font-style: italic;
-  font-family: var(--font-math);
+.eq-katex .katex-display {
+  margin: 0;
+  text-align: left;
+  padding: 2px 0;
 }
 
-.eq-frac {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  vertical-align: middle;
-  margin: 0 3px;
-  line-height: 1.15;
-  font-size: 0.88em;
+.eq-katex .katex {
+  font-size: 0.96rem;
+  color: var(--text-primary);
 }
 
-.eq-num {
-  padding: 0 5px 2px;
-  border-bottom: 1px solid currentColor;
-}
-
-.eq-den {
-  padding: 2px 5px 0;
+@media (max-width: 600px) {
+  .eq-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
 }
 
 .eq-tag {
