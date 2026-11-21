@@ -196,7 +196,13 @@ function bindUIEvents() {
 
   document.querySelectorAll(".sidebar .panel-head").forEach((head) => {
     head.addEventListener("click", () => {
-      head.closest(".panel-card")?.classList.toggle("collapsed");
+      const card = head.closest(".panel-card");
+      if (!card) return;
+      const wasCollapsed = card.classList.contains("collapsed");
+      if (window.innerWidth >= 1121 && wasCollapsed) {
+        document.querySelectorAll(".sidebar .panel-card").forEach((c) => c.classList.add("collapsed"));
+      }
+      card.classList.toggle("collapsed");
     });
   });
 
@@ -479,6 +485,9 @@ function bindUIEvents() {
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   bindUIEvents();
+  if (window.innerWidth >= 1121) {
+    document.querySelectorAll(".sidebar .panel-card").forEach((c) => c.classList.add("collapsed"));
+  }
 
   try {
     initializeProfiles();

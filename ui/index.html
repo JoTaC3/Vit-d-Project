@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Vitamina D Simulator v0.3.19</title>
+  <title>Vitamina D Simulator v0.3.20</title>
   <link rel="stylesheet" href="vendor/katex/katex.min.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="chart.umd.min.js"></script>
@@ -21,11 +21,19 @@
       <div class="brand-text">
         <div class="brand-title-row">
           <h1>Vitamina D Simulator</h1>
-          <span class="version-chip">v0.3.19</span>
-        </div>      </div>
+          <span class="version-chip">v0.3.20</span>
+        </div>
+      </div>
     </div>
 
-      <div class="topbar-controls">
+    <nav class="tab-nav" role="tablist" aria-label="Secciones principales">
+      <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab="simulador"><span>Simulador PK &amp; Dosis</span></button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="planificador"><span>Planificador Inverso</span></button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="memorias"><span>Memorias Guardadas</span></button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="ciencia"><span>Modelo Matemático</span></button>
+    </nav>
+
+    <div class="topbar-controls">
       <div class="profile-dock">
         <div class="profile-select-group">
           <label for="profileSelector" class="micro-label">PERFIL</label>
@@ -94,6 +102,7 @@
               <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
+            <div class="panel-body panel-body-profile">
             <div class="form-row">
               <div class="form-group">
                 <label for="sex">Sexo biológico</label>
@@ -137,6 +146,7 @@
               <label for="simWeeks">Horizonte de proyección (semanas)</label>
               <input type="number" id="simWeeks" value="24" min="4" max="104" inputmode="numeric" />
             </div>
+            </div>
           </div>
 
           <div class="panel-card collapsed">
@@ -150,6 +160,8 @@
               <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
+            <div class="panel-body panel-body-split">
+            <div class="panel-form">
             <div class="form-row">
               <div class="form-group">
                 <label for="examWeek">Semana</label>
@@ -168,6 +180,7 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>Registrar Examen</span>
             </button>
+            </div>
 
             <div class="table-wrapper mt-12">
               <table class="data-table">
@@ -182,6 +195,7 @@
                 <tbody id="examsTableBody"></tbody>
               </table>
             </div>
+            </div>
           </div>
 
           <div class="panel-card collapsed">
@@ -194,6 +208,8 @@
               <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
+            <div class="panel-body panel-body-split">
+            <div class="panel-form">
             <div class="form-row-3">
               <div class="form-group">
                 <label for="anthroWeek">Sem</label>
@@ -212,6 +228,7 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>Registrar Control Corporal</span>
             </button>
+            </div>
 
             <div class="table-wrapper mt-12">
               <table class="data-table">
@@ -226,6 +243,7 @@
                 <tbody id="anthroTableBody"></tbody>
               </table>
             </div>
+            </div>
           </div>
 
           <div class="panel-card">
@@ -233,10 +251,13 @@
               <span class="step-index">04</span>
               <div>
                 <h2>Esquema de Dosificación</h2>
+                <span class="panel-summary" id="summaryDoses"></span>
               </div>
               <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
+            <div class="panel-body panel-body-split">
+            <div class="panel-form">
             <div class="form-group">
               <label for="doseType">Compuesto activo</label>
               <select id="doseType">
@@ -285,6 +306,7 @@
                 <span>Vaciar</span>
               </button>
             </div>
+            </div>
 
             <div class="table-wrapper mt-12">
               <table class="data-table">
@@ -298,6 +320,7 @@
                 </thead>
                 <tbody id="dosesTableBody"></tbody>
               </table>
+            </div>
             </div>
           </div>
         </aside>
@@ -342,7 +365,6 @@
             <div class="chart-deck-header">
               <div>
                 <h2>Trayectoria Sérica 25(OH)D3 y Calibración</h2>
-                <p class="hint">Toca o desliza sobre la curva para inspeccionar concentraciones exactas, reservas y eventos de dosis.</p>
               </div>
               <div class="snapshot-bar">
                 <input type="text" id="simTitleInput" placeholder="Nombre (ej. Protocolo Diciembre)" aria-label="Nombre de simulación" />
@@ -368,19 +390,6 @@
               </div>
             </div>
 
-                  <div class="inspector-cell">
-                    <span class="inspector-cell-lbl">Reserva D3 (kUI)</span>
-                    <span class="inspector-cell-val" id="scrubberAdipVal">--</span>
-                  </div>
-                  <div class="inspector-cell">
-                    <span class="inspector-cell-lbl">Aporte (UI/d)</span>
-                    <span class="inspector-cell-val" id="scrubberIntakeVal">--</span>
-                  </div>
-                </div>
-              </div>
-              <input type="range" id="chartScrubber" class="week-scrubber" min="0" max="24" step="0.25" value="0" aria-label="Explorar semana en el gráfico" />
-            </div>
-
             <div class="chart-container-lg">
               <canvas id="bloodChart"></canvas>
             </div>
@@ -394,6 +403,18 @@
                     <span class="inspector-cell-lbl">25(OH)D [mín–máx]</span>
                     <span class="inspector-cell-val" id="scrubberConcVal">--</span>
                   </div>
+                  <div class="inspector-cell">
+                    <span class="inspector-cell-lbl">Reserva D3 (kUI)</span>
+                    <span class="inspector-cell-val" id="scrubberAdipVal">--</span>
+                  </div>
+                  <div class="inspector-cell">
+                    <span class="inspector-cell-lbl">Aporte (UI/d)</span>
+                    <span class="inspector-cell-val" id="scrubberIntakeVal">--</span>
+                  </div>
+                </div>
+              </div>
+              <input type="range" id="chartScrubber" class="week-scrubber" min="0" max="24" step="0.25" value="0" aria-label="Explorar semana en el gráfico" />
+            </div>
           </div>
 
           <div class="two-col-charts">

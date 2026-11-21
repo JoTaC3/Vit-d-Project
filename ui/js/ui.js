@@ -125,6 +125,9 @@ function updateKPIs(traj, initialParams, totalWeeks, calibration = null) {
   if (sumExEl) sumExEl.textContent = `${exams.length} ${exams.length === 1 ? "examen" : "exámenes"}`;
   const sumAnEl = $id("summaryAnthro");
   if (sumAnEl) sumAnEl.textContent = `${anthro.length} ${anthro.length === 1 ? "control" : "controles"}`;
+  const dosesCount = (store.appState.doses || []).length;
+  const sumDoses = $id("summaryDoses");
+  if (sumDoses) sumDoses.textContent = `${dosesCount} ${dosesCount === 1 ? "tramo" : "tramos"}`;
 
   // Micro-instrumento clínico 0-120 ng/mL en #kpiEndCard
   const startPct = Math.max(0, Math.min(100, (startNg / 120) * 100));
