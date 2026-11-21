@@ -1335,3 +1335,23 @@ select:focus {
   background: var(--bg-input);
   color: var(--text-primary);
 }
+
+.label-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.btn-link-inline {
+  padding: 1px 6px;
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--helio);
+  background: var(--helio-soft);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}

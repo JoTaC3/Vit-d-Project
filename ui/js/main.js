@@ -2,6 +2,7 @@
  * Punto de Entrada Principal (ES Modules)
  */
 
+import { estimateBodyFatCUNBAE } from "./pkEngine.js";
 import {
   store,
   STORAGE_KEY_THEME,
@@ -299,6 +300,24 @@ function bindUIEvents() {
     renderExamsTable();
     renderAnthroTable();
     renderDosesTable();
+  });
+
+  $id("estimateBodyFatBtn")?.addEventListener("click", () => {
+    const bp = store.appState.bodyProfile;
+    const sex = $id("sex")?.value || bp.sex || "male";
+    const age = clampNum($id("age")?.value, 15, 100, bp.age || 22);
+    const weight = clampNum($id("weight")?.value, 35, 250, bp.weight || 110);
+    const height = clampNum($id("height")?.value, 120, 230, bp.height || 180);
+    const bf = estimateBodyFatCUNBAE(sex, age, weight, height);
+    bp.sex = sex;
+    bp.age = age;
+    bp.weight = weight;
+    bp.height = height;
+    bp.bodyFat = bf;
+    if ($id("bodyFat")) $id("bodyFat").value = String(bf);
+    scheduleAutoSave();
+    safeRenderAll();
+    showToast(`Grasa corporal estimada (CUN-BAE): ${bf}%`);
   });
 
   function updateDoseTypeUI() {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Vitamina D Simulator v0.3.11</title>
+  <title>Vitamina D Simulator v0.3.12</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="chart.umd.min.js"></script>
 </head>
@@ -19,7 +19,7 @@
       <div class="brand-text">
         <div class="brand-title-row">
           <h1>Vitamina D Simulator</h1>
-          <span class="version-chip">v0.3.11</span>
+          <span class="version-chip">v0.3.12</span>
         </div>
         <p class="subtitle">Telemetría Farmacocinética Compartimental • Colecalciferol D3 &amp; Hidroferol (Calcifediol)</p>
       </div>
@@ -121,7 +121,10 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label for="bodyFat">Grasa corporal (%)</label>
+                <div class="label-inline">
+                  <label for="bodyFat">Grasa corporal (%)</label>
+                  <button type="button" id="estimateBodyFatBtn" class="btn-link-inline" title="Estimar % de grasa corporal con ecuación clínica CUN-BAE">CUN-BAE</button>
+                </div>
                 <input type="number" id="bodyFat" value="32" min="4" max="65" step="0.5" inputmode="decimal" />
               </div>
               <div class="form-group">
@@ -494,36 +497,36 @@
     <!-- TAB 4: MODELO MATEMÁTICO -->
     <section id="tab-ciencia" class="tab-content" role="tabpanel">
       <div class="panel-card science-card">
-        <h2>Arquitectura Farmacocinética PopPK (V6)</h2>
-        <p class="science-lead">Integración numérica mediante <strong>Runge-Kutta de 4.º orden (RK4)</strong> con paso Δt = 0,25 días (6 horas) sobre cuatro variables de estado acopladas (<code>gut<sub>D3</sub></code>, <code>gut<sub>25D</sub></code>, <code>pool<sub>D3</sub></code>, <code>pool<sub>25D</sub></code>):</p>
+        <h2>Arquitectura Farmacocinética PopPK (V7)</h2>
+        <p class="science-lead">Integración numérica mediante <strong>Runge-Kutta de 4.º orden (RK4)</strong> con paso Δt = 0,25 días (6 horas) sobre cuatro variables de estado acopladas (<code>gut<sub>D3</sub></code>, <code>gut<sub>25D</sub></code>, <code>pool<sub>D3</sub></code>, <code>pool<sub>25D</sub></code>) y calibración Bayesiana MAP:</p>
 
         <div class="science-grid">
           <div class="science-box">
-            <span class="mono-tag">VOLÚMENES ALOMÉTRICOS</span>
-            <h3>Escalamiento Diferenciado (V<sub>rel,D3</sub> y V<sub>rel,25D</sub>)</h3>
-            <p>Referidos a un adulto estándar (FFM<sub>ref</sub> = 56 kg, FM<sub>ref</sub> = 14 kg), con interpolación diaria según la tabla antropométrica:</p>
-            <code>v_rel,D3 = max(0.55, 0.40·(FFM/56)^0.75 + 0.60·(FM/14))<br>v_rel,25D = max(0.65, 0.78·(FFM/56)^0.75 + 0.22·(FM/14))</code>
+            <span class="mono-tag">ALOMETRÍA, CUN-BAE Y LIPÓLISIS</span>
+            <h3>Volúmenes (V<sub>rel</sub>) y Movilización Adiposa</h3>
+            <p>Escalamiento alométrico desde adulto estándar (FFM<sub>ref</sub> = 56 kg, FM<sub>ref</sub> = 14 kg), estimación clínica CUN-BAE y liberación lipolítica proporcional a la pérdida de masa grasa (γ<sub>lip</sub> = 0,45 ng/mL·kg<sup>−1</sup>):</p>
+            <code>v_rel,D3 = max(0,55, 0,40·(FFM/56)^0,75 + 0,60·(FM/14))<br>J_lip = γ_lip · (−dFM/dt)+ · (C / 25) · v_rel,D3</code>
           </div>
 
           <div class="science-box">
-            <span class="mono-tag">ABSORCIÓN DE D<sub>3</sub></span>
-            <h3>Colecalciferol Oral y Saturación de Hill</h3>
-            <p>Entrada intestinal con saturación en bolo (D<sub>50</sub> = 180.000 UI, exponente n = 0,85) y transferencia de primer orden (k<sub>a</sub> = 0,28 d<sup>−1</sup>, α<sub>D3</sub> = 0,00041):</p>
-            <code>η_D3(UI) = 1 / (1 + (UI / 180.000)^0.85)<br>d(gut_D3)/dt = −0,28 · gut_D3</code>
+            <span class="mono-tag">D<sub>3</sub> ORAL Y REPRESIÓN CYP2R1</span>
+            <h3>Saturación de Hill y Conversión Hepática</h3>
+            <p>Entrada intestinal de colecalciferol (D<sub>50</sub> = 180.000 UI, n = 0,85, k<sub>a</sub> = 0,28 d<sup>−1</sup>) modulada por represión hepática CYP2R1 en obesidad (β = 0,16):</p>
+            <code>η_D3(UI) = 1 / (1 + (UI / 180.000)^0,85)<br>f_CYP2R1 = 1 / (1 + 0,16 · max(0, FM/14 − 1))</code>
           </div>
 
           <div class="science-box">
-            <span class="mono-tag">ABSORCIÓN DE CALCIFEDIOL</span>
-            <h3>Hidroferol 25(OH)D<sub>3</sub> (µg / mg)</h3>
-            <p>Absorción directa rápida (k<sub>a</sub> = 1,40 d<sup>−1</sup>, α<sub>25D</sub> = 0,068) con saturación de Hill (D<sub>50</sub> = 2,50 mg; cápsula estándar = 266 µg):</p>
-            <code>η_25D(mg) = 1 / (1 + (mg / 2,50)^0.85)<br>C(t) = C_2(0) + pool_D3/v_rel,D3 + pool_25D/v_rel,25D</code>
+            <span class="mono-tag">CINÉTICA DIFERENCIADA Y CYP24A1</span>
+            <h3>Calcifediol (15 d) vs. D<sub>3</sub> (28 d)</h3>
+            <p>Hidroferol 25(OH)D<sub>3</sub> elude CYP2R1 (k<sub>a</sub> = 1,40 d<sup>−1</sup>, t<sub>1/2</sub> = 15,0 d) frente al pool de D<sub>3</sub> (t<sub>1/2</sub> = 28,0 d), con inducción catabólica CYP24A1 sobre 30 ng/mL (E<sub>max</sub> = 0,35):</p>
+            <code>φ_CYP24(C) = 1 + 0,35·(C − 30)+ / (50 + (C − 30)+)<br>k_e,D3 = (ln 2 / 28)·φ, k_e,25D = (ln 2 / 15)·φ</code>
           </div>
 
           <div class="science-box">
-            <span class="mono-tag">ACLARAMIENTO CYP24A1</span>
-            <h3>Vida Media y Retroalimentación Enzimática</h3>
-            <p>Vida media base t<sub>1/2</sub> = 25,0 días (k<sub>e,base</sub> = ln(2)/25) con inducción CYP24A1 por encima de 30 ng/mL (E<sub>max</sub> = 0,35, EC<sub>50</sub> = 50 ng/mL):</p>
-            <code>k_e,eff(C) = k_e,base · [1 + 0,35·(C − 30)+ / (50 + (C − 30)+)]</code>
+            <span class="mono-tag">CALIBRACIÓN BAYESIANA MAP E IC 90%</span>
+            <h3>Individualización Longitudinal (MIPD)</h3>
+            <p>Ajuste máximo a posteriori de ganancia (η<sub>gain</sub>, ω = 0,28) y aclaramiento (η<sub>ke</sub>, ω = 0,25) sobre exámenes ≥ 0,5 sem con error residual mixto y contracción de varianza IC 90%:</p>
+            <code>σ_MAP = ω / √(1 + 0,85 · N_exámenes)<br>IC 90%: C_base ± 1,645·σ_RUV, η ± (1,645/√2)·σ_MAP</code>
           </div>
         </div>
       </div>

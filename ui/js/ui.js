@@ -18,7 +18,7 @@ import {
   getTodayDateString,
   cloneData
 } from "./state.js";
-import { solveDoseWithRK4, estimateSafeWeeksRK4, simulateCurrentState } from "./pkEngine.js";
+import { solveDoseWithRK4, estimateSafeWeeksRK4, simulateCurrentState, getCurrentCalibration } from "./pkEngine.js";
 import { renderCharts, flushChartsIfDirty } from "./charts.js";
 
 function $id(id) {
@@ -70,7 +70,7 @@ function classifyVitaminDStatus(valNg) {
   return { label: "Riesgo de Toxicidad (> 100 ng/mL)", tone: "danger" };
 }
 
-function updateKPIs(traj, initialParams, totalWeeks) {
+function updateKPIs(traj, initialParams, totalWeeks, calibration = null) {
   const startNg = traj.levels[0];
   const endNg = traj.levels[traj.levels.length - 1];
   let peakNg = startNg;
@@ -110,7 +110,10 @@ function updateKPIs(traj, initialParams, totalWeeks) {
   }
 
   $id("kpiDailyAvg").textContent = `${Math.round(avgDailyIU).toLocaleString()} UI/d`;
-  $id("kpiVdInfo").textContent = `Vd: ${initialParams.effectiveVolume.toFixed(1)} L • IMC: ${initialParams.bmi.toFixed(1)}`;
+  const mapSuffix = calibration?.calibrated
+    ? ` • MAP (${calibration.examCount} ex., RMSE ${toDisplayUnit(calibration.rmseNg).toFixed(1)})`
+    : "";
+  $id("kpiVdInfo").textContent = `Vd: ${initialParams.effectiveVolume.toFixed(1)} L • IMC: ${initialParams.bmi.toFixed(1)}${mapSuffix}`;
 
   const banner = $id("safetyBanner");
   if (banner) {
@@ -128,8 +131,8 @@ function updateKPIs(traj, initialParams, totalWeeks) {
 }
 
 export function runSimulationAndRender() {
-  const { totalWeeks, initialParams, mainTraj, lowerTraj, upperTraj } = simulateCurrentState();
-  updateKPIs(mainTraj, initialParams, totalWeeks);
+  const { totalWeeks, initialParams, calibration, mainTraj, lowerTraj, upperTraj } = simulateCurrentState();
+  updateKPIs(mainTraj, initialParams, totalWeeks, calibration);
   renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks);
 }
 
@@ -371,14 +374,18 @@ export function generateTargetPlans() {
     return;
   }
 
-  const safeMinWeeks = estimateSafeWeeksRK4(initialLevelNg, targetLevelNg);
+  const calibration = getCurrentCalibration();
+  const safeMinWeeks = estimateSafeWeeksRK4(initialLevelNg, targetLevelNg, calibration);
+  const mapNote = calibration.calibrated
+    ? `<br><small>Protocolo personalizado mediante calibración Bayesiana MAP (${calibration.examCount} examen(es), RMSE ${formatLevel(calibration.rmseNg, 1)}).</small>`
+    : "";
 
   if (loadWeeks < safeMinWeeks) {
     alertBox.className = "status-banner warning mt-12";
-    alertBox.innerHTML = `<strong>Plazo exigente:</strong> Alcanzar ${formatLevel(targetLevelNg, 1)} desde ${formatLevel(initialLevelNg, 1)} en ${loadWeeks} semanas requiere dosis altas. A 4.000 UI/día estándar tomaría ~<strong>${safeMinWeeks} semanas</strong>.`;
+    alertBox.innerHTML = `<strong>Plazo exigente:</strong> Alcanzar ${formatLevel(targetLevelNg, 1)} desde ${formatLevel(initialLevelNg, 1)} en ${loadWeeks} semanas requiere dosis altas. A 4.000 UI/día estándar tomaría ~<strong>${safeMinWeeks} semanas</strong>.${mapNote}`;
   } else {
     alertBox.className = "status-banner success mt-12";
-    alertBox.innerHTML = `<strong>Plazo Fisiológico Adecuado:</strong> ${loadWeeks} semanas permiten una reposición gradual hacia ${formatLevel(targetLevelNg, 1)}.`;
+    alertBox.innerHTML = `<strong>Plazo Fisiológico Adecuado:</strong> ${loadWeeks} semanas permiten una reposición gradual hacia ${formatLevel(targetLevelNg, 1)}.${mapNote}`;
   }
 
   const strategies = [
@@ -419,7 +426,8 @@ export function generateTargetPlans() {
       loadWeeks,
       maintWeeks,
       strat.freq,
-      strat.doseType
+      strat.doseType,
+      calibration
     );
 
     const isCalci = strat.doseType === "calcifediol";
