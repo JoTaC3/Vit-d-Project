@@ -2,7 +2,7 @@
  * Módulo de Gráficos Interactivos (Chart.js + Plugins Custom Canvas)
  */
 
-import { store, toDisplayUnit } from "./state.js";
+import { store, toDisplayUnit, getDateForWeek } from "./state.js";
 
 let bloodChart = null;
 let adiposeChart = null;
@@ -170,7 +170,8 @@ function updateInspectorUI(week) {
   const readout = document.getElementById("scrubberReadout");
   const scrubber = document.getElementById("chartScrubber");
 
-  if (weekBadge) weekBadge.textContent = `SEM ${w.toFixed(2)}`;
+  const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, w);
+  if (weekBadge) weekBadge.textContent = `SEM ${w.toFixed(1)}${dateStr ? " • " + dateStr : ""}`;
   if (readout) {
     readout.textContent = `25(OH)D: ${cMain} ${unit} [${cLow}–${cHigh}] • Reserva D3: ${adip} kUI • Aporte: ${intake} UI/d`;
   }
@@ -226,7 +227,10 @@ function buildDoseMarkers(totalWeeks, baselineY) {
   store.appState.doses.forEach((d) => {
     const startW = Math.max(0, d.startWeek);
     const endW = Math.min(totalWeeks, d.endWeek);
-    const label = `${d.type === "calcifediol" ? "25(OH)D3" : "D3"} ${d.iu.toLocaleString()} UI`;
+    const isCalci = d.type === "calcifediol";
+    const label = isCalci
+      ? `Hidroferol ${d.amount || d.ug || 266} µg`
+      : `D3 ${(d.amount || d.iu || 2000).toLocaleString()} UI`;
 
     if (d.freq === "single") {
       if (startW <= totalWeeks) {
@@ -468,10 +472,12 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
               callbacks: {
                 label: (ctx) => {
                   const raw = ctx.raw;
+                  const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, ctx.parsed.x);
+                  const datePart = dateStr ? ` • ${dateStr}` : "";
                   if (raw && raw.note) {
-                    return `${raw.note} • Sem ${raw.x}`;
+                    return `${raw.note} • Sem ${raw.x}${datePart}`;
                   }
-                  return `${ctx.dataset.label}: ${ctx.parsed.y} ${unit} (Sem ${ctx.parsed.x})`;
+                  return `${ctx.dataset.label}: ${ctx.parsed.y} ${unit} (Sem ${ctx.parsed.x}${datePart})`;
                 }
               }
             }
@@ -543,7 +549,16 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { labels: { color: colors.text, boxWidth: 11, font: { size: 11 } } }
+            legend: { labels: { color: colors.text, boxWidth: 11, font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, ctx.parsed.x);
+                  const datePart = dateStr ? ` • ${dateStr}` : "";
+                  return `${ctx.dataset.label}: ${ctx.parsed.y} (Sem ${ctx.parsed.x}${datePart})`;
+                }
+              }
+            }
           },
           scales: {
             x: {
@@ -600,7 +615,16 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { labels: { color: colors.text, boxWidth: 11, font: { size: 11 } } }
+            legend: { labels: { color: colors.text, boxWidth: 11, font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, ctx.parsed.x);
+                  const datePart = dateStr ? ` • ${dateStr}` : "";
+                  return `${ctx.dataset.label}: ${ctx.parsed.y} (Sem ${ctx.parsed.x}${datePart})`;
+                }
+              }
+            }
           },
           scales: {
             x: {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Vitamina D Simulator v0.3.7 | Modelo PK V7.1</title>
+  <title>Vitamina D Simulator v0.3.8</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="chart.umd.min.js"></script>
 </head>
@@ -19,9 +19,9 @@
       <div class="brand-text">
         <div class="brand-title-row">
           <h1>Vitamina D Simulator</h1>
-          <span class="version-chip">v0.3.7 • PK V7.1</span>
+          <span class="version-chip">v0.3.8</span>
         </div>
-        <p class="subtitle">Telemetría Farmacocinética Compartimental • Colecalciferol D3 &amp; Calcifediol 25(OH)D3</p>
+        <p class="subtitle">Telemetría Farmacocinética Compartimental • Colecalciferol D3 &amp; Hidroferol (Calcifediol)</p>
       </div>
     </div>
 
@@ -124,23 +124,9 @@
                 <input type="number" id="bodyFat" value="32" min="4" max="65" step="0.5" inputmode="decimal" />
               </div>
               <div class="form-group">
-                <label for="skinTone">Fototipo Fitzpatrick</label>
-                <select id="skinTone">
-                  <option value="1.2">Tipo I-II (Muy clara)</option>
-                  <option value="1.0" selected>Tipo III-IV (Intermedia)</option>
-                  <option value="0.7">Tipo V-VI (Oscura)</option>
-                </select>
+                <label for="startDate">Fecha de inicio</label>
+                <input type="date" id="startDate" />
               </div>
-            </div>
-
-            <div class="form-group">
-              <label for="sunExposure">Síntesis solar diaria equivalente</label>
-              <select id="sunExposure">
-                <option value="0" selected>Mínima / Oficina / Invierno (0 UI/día)</option>
-                <option value="600">Baja (~15 min brazos/cara: ~600 UI/día)</option>
-                <option value="1500">Moderada (~30 min sol medio: ~1.500 UI/día)</option>
-                <option value="3000">Alta (verano / exterior frecuente: ~3.000 UI/día)</option>
-              </select>
             </div>
 
             <div class="form-group">
@@ -245,7 +231,7 @@
               <span class="step-index">04</span>
               <div>
                 <h2>Esquema de Dosificación</h2>
-                <p class="hint">Superpone múltiples tramos de $D_3$ y Calcifediol ($25\text{OHD}_3$).</p>
+                <p class="hint">Superpone múltiples tramos de $D_3$ y Hidroferol (Calcifediol).</p>
               </div>
             </div>
 
@@ -253,14 +239,15 @@
               <label for="doseType">Compuesto activo</label>
               <select id="doseType">
                 <option value="d3">Colecalciferol (Vitamina D3 estándar)</option>
-                <option value="calcifediol">Calcifediol / 25(OH)D3 (Potencia 3.15×)</option>
+                <option value="calcifediol">Hidroferol (Calcifediol en microgramos)</option>
               </select>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label for="doseIU">Dosis por toma (UI)</label>
-                <input type="number" id="doseIU" value="4000" min="50" max="600000" step="100" inputmode="numeric" />
+                <label for="doseAmount" id="doseAmountLabel">Dosis por toma (UI)</label>
+                <input type="number" id="doseAmount" value="4000" min="1" max="600000" step="500" inputmode="numeric" />
+                <span class="hint-micro" id="doseHintText">Colecalciferol D3: 1.000 – 50.000 UI por toma</span>
               </div>
               <div class="form-group">
                 <label for="doseFreq">Frecuencia</label>
@@ -403,7 +390,7 @@
                 <h3>Aporte Equivalente Biodisponible</h3>
                 <span class="mono-tag">UI / día</span>
               </div>
-              <p class="hint">Dosis exógena ajustada por absorción no lineal + síntesis solar diaria.</p>
+              <p class="hint">Aporte exógeno diario ajustado por biodisponibilidad y frecuencia de administración.</p>
               <div class="chart-container-sm">
                 <canvas id="intakeChart"></canvas>
               </div>
@@ -489,15 +476,15 @@
     <!-- TAB 4: MODELO MATEMÁTICO -->
     <section id="tab-ciencia" class="tab-content" role="tabpanel">
       <div class="panel-card science-card">
-        <h2>Arquitectura Farmacocinética Compartimental (V7.1)</h2>
+        <h2>Arquitectura Farmacocinética Compartimental</h2>
         <p class="science-lead">Integración numérica mediante <strong>Runge-Kutta de 4.º orden (RK4)</strong> con paso $\Delta t = 0.25\ \text{días}$ (6 horas) sobre tres variables de estado acopladas:</p>
 
         <div class="science-grid">
           <div class="science-box">
             <span class="mono-tag">COMPARTIMENTO A1(t)</span>
             <h3>Colecalciferol Circulante ($D_3$)</h3>
-            <p>Integra la ingesta oral modulada por biodisponibilidad no lineal (1.00 hasta 2.000 UI; 0.65 en megadosis &gt; 100.000 UI), síntesis solar cutánea y retorno desde tejido adiposo.</p>
-            <code>dA1/dt = I_solar + k_rel·A_adip − (k_conv(A1) + k_cap + k_loss)·A1</code>
+            <p>Integra la ingesta oral modulada por biodisponibilidad no lineal (1.00 hasta 2.000 UI; 0.65 en megadosis &gt; 100.000 UI) y retorno dinámico desde tejido adiposo.</p>
+            <code>dA1/dt = k_rel·A_adip − (k_conv(A1) + k_cap + k_loss)·A1</code>
           </div>
 
           <div class="science-box">
@@ -510,7 +497,7 @@
           <div class="science-box">
             <span class="mono-tag">COMPARTIMENTO C2(t)</span>
             <h3>Calcifediol Sérico $25(\text{OH})\text{D}_3$</h3>
-            <p>Hidroxilación hepática saturable tipo Michaelis-Menten ($k_{\text{conv}}(A_1) = 0.24 / (1 + A_1/65)$). El calcifediol oral ingresa directo a $C_2$ con potencia relativa de <strong>3.15×</strong>.</p>
+            <p>Hidroxilación hepática saturable tipo Michaelis-Menten ($k_{\text{conv}}(A_1) = 0.24 / (1 + A_1/65)$). El calcifediol oral (Hidroferol cápsula 266 µg) ingresa directamente al compartimento $C_2$ con biodisponibilidad oral (~82%).</p>
             <code>dC2/dt = [0.30 · k_conv(A1) · A1] / Vd(t) − k_elim · C2</code>
           </div>
 

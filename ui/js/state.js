@@ -16,6 +16,30 @@ export function clampNum(val, min, max, fallback) {
   return Math.min(max, Math.max(min, n));
 }
 
+export function getTodayDateString() {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, "0");
+  const d = String(today.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function getDateForWeek(startDateStr, weekNum) {
+  if (!startDateStr || typeof startDateStr !== "string") return "";
+  const parts = startDateStr.split("-");
+  if (parts.length !== 3) return "";
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const base = new Date(y, m, d);
+  if (isNaN(base.getTime())) return "";
+  const target = new Date(base.getTime() + Math.round(Number(weekNum) * 7 * 86400000));
+  const day = String(target.getDate()).padStart(2, "0");
+  const month = String(target.getMonth() + 1).padStart(2, "0");
+  const year = target.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 export function createDefaultProfileState() {
   return {
     unit: "ng/mL",
@@ -25,8 +49,7 @@ export function createDefaultProfileState() {
       height: 180,
       weight: 110,
       bodyFat: 32,
-      skinTone: 1.0,
-      sunExposure: 0,
+      startDate: getTodayDateString(),
       simWeeks: 24
     },
     bloodMeasurements: [
@@ -37,7 +60,9 @@ export function createDefaultProfileState() {
       {
         id: cryptoId(),
         type: "d3",
+        amount: 4000,
         iu: 4000,
+        ug: 100,
         freq: "daily",
         startWeek: 0,
         endWeek: 12
@@ -45,7 +70,9 @@ export function createDefaultProfileState() {
       {
         id: cryptoId(),
         type: "d3",
+        amount: 2000,
         iu: 2000,
+        ug: 50,
         freq: "daily",
         startWeek: 12,
         endWeek: 24
@@ -67,8 +94,9 @@ export function sanitizeState(rawState) {
       height: clampNum(bp.height, 120, 230, 180),
       weight: clampNum(bp.weight, 35, 250, 110),
       bodyFat: clampNum(bp.bodyFat, 4, 65, 32),
-      skinTone: clampNum(bp.skinTone, 0.5, 1.5, 1.0),
-      sunExposure: clampNum(bp.sunExposure, 0, 10000, 0),
+      startDate: (bp.startDate && /^\d{4}-\d{2}-\d{2}$/.test(String(bp.startDate)))
+        ? String(bp.startDate)
+        : getTodayDateString(),
       simWeeks: clampNum(bp.simWeeks, 4, 104, 24)
     },
     bloodMeasurements: Array.isArray(rawState.bloodMeasurements)
@@ -88,14 +116,28 @@ export function sanitizeState(rawState) {
         }))
       : [],
     doses: Array.isArray(rawState.doses)
-      ? rawState.doses.map((d) => ({
-          id: String(d.id || cryptoId()),
-          type: d.type === "calcifediol" ? "calcifediol" : "d3",
-          iu: clampNum(d.iu, 50, 1000000, 2000),
-          freq: ["daily", "weekly", "biweekly", "monthly", "single"].includes(d.freq) ? d.freq : "daily",
-          startWeek: clampNum(d.startWeek, 0, 104, 0),
-          endWeek: clampNum(d.endWeek, 0.5, 104, 12)
-        }))
+      ? rawState.doses.map((d) => {
+          const isCalci = d.type === "calcifediol";
+          let amount;
+          if (isCalci) {
+            if (d.amount != null) amount = clampNum(d.amount, 10, 5000, 266);
+            else if (d.ug != null) amount = clampNum(d.ug, 10, 5000, 266);
+            else if (d.iu != null && d.iu > 1000) amount = clampNum(Math.round(d.iu / 60), 10, 5000, 266);
+            else amount = 266;
+          } else {
+            amount = clampNum(d.amount ?? d.iu, 50, 1000000, 2000);
+          }
+          return {
+            id: String(d.id || cryptoId()),
+            type: isCalci ? "calcifediol" : "d3",
+            amount,
+            iu: isCalci ? Math.round(amount * 60) : amount,
+            ug: isCalci ? amount : Math.round(amount / 40),
+            freq: ["daily", "weekly", "biweekly", "monthly", "single"].includes(d.freq) ? d.freq : "daily",
+            startWeek: clampNum(d.startWeek, 0, 104, 0),
+            endWeek: clampNum(d.endWeek, 0.5, 104, 12)
+          };
+        })
       : base.doses
   };
 }

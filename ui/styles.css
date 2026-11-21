@@ -492,7 +492,8 @@ select {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-input[type="number"] {
+input[type="number"],
+input[type="date"] {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
@@ -586,6 +587,21 @@ select:focus {
   background: var(--serum-soft);
   color: var(--serum);
   border: 1px solid var(--serum);
+}
+
+.hint-date {
+  display: block;
+  font-size: 0.69rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-top: 2px;
+}
+
+.hint-micro {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 4px;
 }
 
 .btn-del {

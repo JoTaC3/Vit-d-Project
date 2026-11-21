@@ -258,7 +258,7 @@ function bindUIEvents() {
     });
   });
 
-  const profileInputs = ["sex", "age", "height", "weight", "bodyFat", "skinTone", "sunExposure", "simWeeks"];
+  const profileInputs = ["sex", "age", "height", "weight", "bodyFat", "simWeeks"];
   profileInputs.forEach((id) => {
     $id(id)?.addEventListener("input", () => {
       const bp = store.appState.bodyProfile;
@@ -267,14 +267,51 @@ function bindUIEvents() {
       if ($id("height")) bp.height = clampNum($id("height").value, 120, 230, 180);
       if ($id("weight")) bp.weight = clampNum($id("weight").value, 35, 250, 110);
       if ($id("bodyFat")) bp.bodyFat = clampNum($id("bodyFat").value, 4, 65, 32);
-      if ($id("skinTone")) bp.skinTone = clampNum($id("skinTone").value, 0.5, 1.5, 1.0);
-      if ($id("sunExposure")) bp.sunExposure = clampNum($id("sunExposure").value, 0, 10000, 0);
       if ($id("simWeeks")) bp.simWeeks = clampNum($id("simWeeks").value, 4, 104, 24);
 
       autoSaveCurrentState();
       safeRenderAll();
     });
   });
+
+  $id("startDate")?.addEventListener("change", (e) => {
+    store.appState.bodyProfile.startDate = e.target.value;
+    autoSaveCurrentState();
+    safeRenderAll();
+    renderExamsTable();
+    renderAnthroTable();
+    renderDosesTable();
+  });
+
+  function updateDoseTypeUI() {
+    const type = $id("doseType")?.value;
+    const label = $id("doseAmountLabel");
+    const input = $id("doseAmount");
+    const hint = $id("doseHintText");
+    if (!type || !label || !input) return;
+
+    if (type === "calcifediol") {
+      label.textContent = "Dosis por toma (µg)";
+      if (hint) hint.textContent = "Hidroferol cápsula blanda: 266 µg (0,266 mg) • ~16.000 UI eq.";
+      input.min = "10";
+      input.max = "5000";
+      input.step = "266";
+      if (Number(input.value) > 5000 || Number(input.value) <= 100) {
+        input.value = "266";
+      }
+    } else {
+      label.textContent = "Dosis por toma (UI)";
+      if (hint) hint.textContent = "Colecalciferol D3: 1.000 – 50.000 UI por toma";
+      input.min = "100";
+      input.max = "600000";
+      input.step = "500";
+      if (Number(input.value) <= 1000) {
+        input.value = "4000";
+      }
+    }
+  }
+
+  $id("doseType")?.addEventListener("change", updateDoseTypeUI);
 
   $id("addExamBtn")?.addEventListener("click", () => {
     const week = clampNum($id("examWeek")?.value, 0, 104, 0);
@@ -308,7 +345,7 @@ function bindUIEvents() {
 
   $id("addDoseBtn")?.addEventListener("click", () => {
     const type = $id("doseType")?.value || "d3";
-    const iu = clampNum($id("doseIU")?.value, 50, 1000000, 2000);
+    const rawAmount = parseFloat($id("doseAmount")?.value);
     const freq = $id("doseFreq")?.value || "daily";
     const startWeek = clampNum($id("doseStartWeek")?.value, 0, 104, 0);
     const endWeek = clampNum($id("doseEndWeek")?.value, 0.5, 104, 12);
@@ -318,11 +355,34 @@ function bindUIEvents() {
       return;
     }
 
-    store.appState.doses.push({ id: cryptoId(), type, iu, freq, startWeek, endWeek });
+    const isCalci = type === "calcifediol";
+    let amount;
+    let iu;
+    let ug;
+    if (isCalci) {
+      amount = clampNum(rawAmount, 10, 5000, 266);
+      ug = amount;
+      iu = Math.round(amount * 60);
+    } else {
+      amount = clampNum(rawAmount, 50, 1000000, 2000);
+      iu = amount;
+      ug = Math.round(amount / 40);
+    }
+
+    store.appState.doses.push({
+      id: cryptoId(),
+      type,
+      amount,
+      iu,
+      ug,
+      freq,
+      startWeek,
+      endWeek
+    });
     autoSaveCurrentState();
     renderDosesTable();
     safeRenderAll();
-    showToast("Tramo de dosis agregado");
+    showToast(`Tramo de ${isCalci ? "Hidroferol" : "D3"} agregado`);
   });
 
   $id("clearDosesBtn")?.addEventListener("click", () => {

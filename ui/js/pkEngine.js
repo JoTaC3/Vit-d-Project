@@ -23,7 +23,6 @@ export function computePhysiologicalParameters(profile, weight, bodyFatPct) {
   const kAdiposeCapture = 0.08 * (1 + 1.8 * excessFatFactor);
   const kAdiposeRelease = 0.016;
   const kLossD3 = 0.045;
-  const sunDailyIU = (profile.sunExposure || 0) * (profile.skinTone || 1.0) * ageFactor;
 
   return {
     effectiveVolume,
@@ -32,7 +31,6 @@ export function computePhysiologicalParameters(profile, weight, bodyFatPct) {
     kAdiposeCapture,
     kAdiposeRelease,
     kLossD3,
-    sunDailyIU,
     bmi,
     leanMass,
     fatMass
@@ -40,8 +38,8 @@ export function computePhysiologicalParameters(profile, weight, bodyFatPct) {
 }
 
 export function computeDoseEfficiency(dose) {
-  if (dose.type === "calcifediol") return 3.15;
-  const iu = dose.iu;
+  if (dose.type === "calcifediol") return 0.82; // Biodisponibilidad oral directa del calcifediol (Hidroferol)
+  const iu = dose.iu ?? (dose.amount || 2000);
   if (iu <= 2000) return 1.0;
   if (iu <= 5000) return 0.96;
   if (iu <= 10000) return 0.91;
@@ -55,11 +53,22 @@ export function expandDosesToTimeline(doses, totalDays) {
   doses.forEach((d) => {
     const startDay = Math.max(0, Math.round(d.startWeek * 7));
     const endDay = Math.min(totalDays, Math.round(d.endWeek * 7));
+    const isCalci = d.type === "calcifediol";
     const eff = computeDoseEfficiency(d);
+
+    let ug = 266;
+    let iu = 2000;
+    if (isCalci) {
+      ug = d.amount ?? d.ug ?? (d.iu != null && d.iu > 1000 ? Math.round(d.iu / 60) : 266);
+      iu = Math.round(ug * 60);
+    } else {
+      iu = d.amount ?? d.iu ?? 2000;
+      ug = Math.round(iu / 40);
+    }
 
     if (d.freq === "single") {
       if (startDay <= totalDays) {
-        events.push({ day: startDay, type: d.type, iu: d.iu, efficiency: eff });
+        events.push({ day: startDay, type: d.type, iu, ug, efficiency: eff });
       }
       return;
     }
@@ -70,7 +79,7 @@ export function expandDosesToTimeline(doses, totalDays) {
       d.freq === "biweekly" ? 14 : 30;
 
     for (let day = startDay; day < endDay; day += stepDays) {
-      events.push({ day, type: d.type, iu: d.iu, efficiency: eff });
+      events.push({ day, type: d.type, iu, ug, efficiency: eff });
     }
   });
   return events;
@@ -150,7 +159,10 @@ export function integrateTrajectory(totalDays, doseEvents, opts, bodyTimeline) {
         if (ev.type === "d3") {
           A1 += (ev.iu / 1000) * ev.efficiency;
         } else {
-          const deltaC = ((ev.iu / 1000) * ev.efficiency * 0.28) / params.effectiveVolume;
+          // Hidroferol (Calcifediol en microgramos):
+          // Biodisponibilidad oral directa (~82%) hacia compartimento sérico C2 (1 ng/mL = 1 ug/L)
+          // Delta C2 (ng/mL) = (Dosis ug * eficiencia) / Vd (L)
+          const deltaC = (ev.ug * ev.efficiency) / params.effectiveVolume;
           C2 += deltaC;
         }
       });
@@ -163,19 +175,20 @@ export function integrateTrajectory(totalDays, doseEvents, opts, bodyTimeline) {
       freeD3.push(Math.max(0, A1));
 
       const todaysEvents = dosesByDay.get(dayInt) || [];
-      const exogIU = todaysEvents.reduce((acc, ev) => acc + ev.iu * ev.efficiency, 0);
-      dailyEquivIU.push(Math.round(exogIU + params.sunDailyIU));
+      const exogIU = todaysEvents.reduce((acc, ev) => {
+        if (ev.type === "d3") return acc + ev.iu * ev.efficiency;
+        return acc + (ev.iu || ev.ug * 60);
+      }, 0);
+      dailyEquivIU.push(Math.round(exogIU));
     }
 
     if (s === steps) break;
 
-    const sunKiloIU = params.sunDailyIU / 1000;
     const Vd = params.effectiveVolume;
 
     const derivatives = (a1, aAdip, c2) => {
       const satConversion = (params.k25Conversion * a1) / (1 + a1 / 65);
       const da1 =
-        sunKiloIU +
         params.kAdiposeRelease * aAdip -
         (satConversion + params.kAdiposeCapture + params.kLossD3) * a1;
 
@@ -221,16 +234,21 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
 
   const timeline = buildBodyTimeline(totalDays, 1.0);
 
-  let low = 100;
-  let high = doseType === "calcifediol" ? 150000 : 300000;
-  let bestLoadIU = 2000;
+  const isCalci = doseType === "calcifediol";
+  let low = isCalci ? 50 : 100;
+  let high = isCalci ? 4000 : 300000;
+  let bestLoad = isCalci ? 266 : 2000;
 
   for (let iter = 0; iter < 24; iter++) {
     const mid = (low + high) / 2;
-    const eff = computeDoseEfficiency({ type: doseType, iu: mid });
+    const eff = computeDoseEfficiency({ type: doseType, iu: isCalci ? Math.round(mid * 60) : mid });
     const events = [];
     for (let d = 0; d < loadDays; d += stepDays) {
-      events.push({ day: d, type: doseType, iu: mid, efficiency: eff });
+      if (isCalci) {
+        events.push({ day: d, type: "calcifediol", ug: mid, iu: Math.round(mid * 60), efficiency: eff });
+      } else {
+        events.push({ day: d, type: "d3", iu: mid, ug: Math.round(mid / 40), efficiency: eff });
+      }
     }
     const traj = integrateTrajectory(loadDays, events, { baseline: baselineNg }, timeline);
     const endLevel = traj.levels[traj.levels.length - 1];
@@ -240,20 +258,30 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
     } else {
       high = mid;
     }
-    bestLoadIU = mid;
+    bestLoad = mid;
   }
 
-  const roundStep = freq === "daily" ? 100 : 500;
-  bestLoadIU = Math.max(roundStep, Math.round(bestLoadIU / roundStep) * roundStep);
+  if (isCalci) {
+    // Cápsula estándar de Hidroferol = 266 ug
+    const caps = Math.max(1, Math.round(bestLoad / 266));
+    bestLoad = caps * 266;
+  } else {
+    const roundStep = freq === "daily" ? 100 : 500;
+    bestLoad = Math.max(roundStep, Math.round(bestLoad / roundStep) * roundStep);
+  }
 
   let bestMaintIU = 2000;
   if (maintDays > 0) {
     let mLow = 200;
     let mHigh = 20000;
-    const loadEff = computeDoseEfficiency({ type: doseType, iu: bestLoadIU });
+    const loadEff = computeDoseEfficiency({ type: doseType, iu: isCalci ? Math.round(bestLoad * 60) : bestLoad });
     const loadEvents = [];
     for (let d = 0; d < loadDays; d += stepDays) {
-      loadEvents.push({ day: d, type: doseType, iu: bestLoadIU, efficiency: loadEff });
+      if (isCalci) {
+        loadEvents.push({ day: d, type: "calcifediol", ug: bestLoad, iu: Math.round(bestLoad * 60), efficiency: loadEff });
+      } else {
+        loadEvents.push({ day: d, type: "d3", iu: bestLoad, ug: Math.round(bestLoad / 40), efficiency: loadEff });
+      }
     }
 
     for (let iter = 0; iter < 20; iter++) {
@@ -261,7 +289,7 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
       const mEff = computeDoseEfficiency({ type: "d3", iu: mMid });
       const events = [...loadEvents];
       for (let d = loadDays; d < totalDays; d += 1) {
-        events.push({ day: d, type: "d3", iu: mMid, efficiency: mEff });
+        events.push({ day: d, type: "d3", iu: mMid, ug: Math.round(mMid / 40), efficiency: mEff });
       }
       const traj = integrateTrajectory(totalDays, events, { baseline: baselineNg }, timeline);
       const finalLevel = traj.levels[traj.levels.length - 1];
@@ -277,13 +305,17 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
   }
 
   const finalEvents = [];
-  const lEff = computeDoseEfficiency({ type: doseType, iu: bestLoadIU });
+  const lEff = computeDoseEfficiency({ type: doseType, iu: isCalci ? Math.round(bestLoad * 60) : bestLoad });
   for (let d = 0; d < loadDays; d += stepDays) {
-    finalEvents.push({ day: d, type: doseType, iu: bestLoadIU, efficiency: lEff });
+    if (isCalci) {
+      finalEvents.push({ day: d, type: "calcifediol", ug: bestLoad, iu: Math.round(bestLoad * 60), efficiency: lEff });
+    } else {
+      finalEvents.push({ day: d, type: "d3", iu: bestLoad, ug: Math.round(bestLoad / 40), efficiency: lEff });
+    }
   }
   const mEff = computeDoseEfficiency({ type: "d3", iu: bestMaintIU });
   for (let d = loadDays; d < totalDays; d += 1) {
-    finalEvents.push({ day: d, type: "d3", iu: bestMaintIU, efficiency: mEff });
+    finalEvents.push({ day: d, type: "d3", iu: bestMaintIU, ug: Math.round(bestMaintIU / 40), efficiency: mEff });
   }
 
   const fullTraj = integrateTrajectory(totalDays, finalEvents, { baseline: baselineNg }, timeline);
@@ -291,8 +323,11 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
   const endNg = fullTraj.levels[fullTraj.levels.length - 1];
 
   return {
-    loadIU: bestLoadIU,
+    loadAmount: bestLoad,
+    loadIU: isCalci ? Math.round(bestLoad * 60) : bestLoad,
+    loadUg: isCalci ? bestLoad : Math.round(bestLoad / 40),
     maintIU: bestMaintIU,
+    maintUg: Math.round(bestMaintIU / 40),
     peakNg,
     endNg
   };
@@ -306,7 +341,7 @@ export function estimateSafeWeeksRK4(initialLevelNg, targetLevelNg) {
   const eff = computeDoseEfficiency({ type: "d3", iu: 4000 });
   const events = [];
   for (let d = 0; d < maxTestDays; d++) {
-    events.push({ day: d, type: "d3", iu: 4000, efficiency: eff });
+    events.push({ day: d, type: "d3", iu: 4000, ug: 100, efficiency: eff });
   }
   const traj = integrateTrajectory(maxTestDays, events, { baseline: initialLevelNg }, timeline);
   for (let i = 0; i < traj.levels.length; i++) {

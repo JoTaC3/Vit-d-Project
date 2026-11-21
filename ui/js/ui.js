@@ -12,7 +12,9 @@ import {
   getInitialBaselineNg,
   getActiveProfile,
   persistProfilesStore,
-  autoSaveCurrentState
+  autoSaveCurrentState,
+  getDateForWeek,
+  getTodayDateString
 } from "./state.js";
 import { solveDoseWithRK4, estimateSafeWeeksRK4, simulateCurrentState } from "./pkEngine.js";
 import { renderCharts } from "./charts.js";
@@ -85,7 +87,8 @@ function updateKPIs(traj, initialParams, totalWeeks) {
   $id("kpiPeak").textContent = formatLevel(peakNg, 1);
   $id("kpiPeakWeek").textContent = `Semana ${peakWeek.toFixed(1)}`;
 
-  $id("kpiEndWeekNum").textContent = totalWeeks;
+  const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, totalWeeks);
+  $id("kpiEndWeekNum").textContent = `${totalWeeks}${dateStr ? " • " + dateStr : ""}`;
   $id("kpiEnd").textContent = formatLevel(endNg, 1);
   const endStatus = classifyVitaminDStatus(endNg);
   $id("kpiEndStatus").textContent = endStatus.label;
@@ -136,8 +139,12 @@ export function renderExamsTable() {
   sorted.forEach((exam) => {
     const tr = document.createElement("tr");
     const safeNote = escapeHTML(exam.note || "—");
+    const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, exam.week);
+    const weekCell = dateStr
+      ? `<div>${exam.week}</div><small class="hint-date">${dateStr}</small>`
+      : `${exam.week}`;
     tr.innerHTML = `
-      <td>${exam.week}</td>
+      <td>${weekCell}</td>
       <td><strong>${toDisplayUnit(exam.valueNg).toFixed(1)}</strong></td>
       <td title="${safeNote}">${safeNote}</td>
       <td><button type="button" class="btn-del" aria-label="Eliminar examen">&times;</button></td>
@@ -160,8 +167,12 @@ export function renderAnthroTable() {
   const sorted = [...store.appState.anthropometryLogs].sort((a, b) => a.week - b.week);
   sorted.forEach((log) => {
     const tr = document.createElement("tr");
+    const dateStr = getDateForWeek(store.appState.bodyProfile.startDate, log.week);
+    const weekCell = dateStr
+      ? `<div>${log.week}</div><small class="hint-date">${dateStr}</small>`
+      : `${log.week}`;
     tr.innerHTML = `
-      <td>${log.week}</td>
+      <td>${weekCell}</td>
       <td>${log.weight} kg</td>
       <td>${log.bodyFat}%</td>
       <td><button type="button" class="btn-del" aria-label="Eliminar registro">&times;</button></td>
@@ -192,10 +203,27 @@ export function renderDosesTable() {
   store.appState.doses.forEach((d) => {
     const tr = document.createElement("tr");
     const isCalci = d.type === "calcifediol";
-    const tramoText = d.freq === "single" ? `Sem ${d.startWeek}` : `${d.startWeek}–${d.endWeek}`;
-    const doseStr = `${d.iu.toLocaleString()} ${freqMap[d.freq] || ""}`;
+    let doseStr = "";
+    if (isCalci) {
+      const ugVal = d.amount ?? d.ug ?? 266;
+      const caps = (ugVal / 266).toFixed(1).replace(/\.0$/, "");
+      doseStr = `${ugVal} µg (${caps} cáp.) ${freqMap[d.freq] || ""}`;
+    } else {
+      const iuVal = d.amount ?? d.iu ?? 2000;
+      doseStr = `${iuVal.toLocaleString()} UI ${freqMap[d.freq] || ""}`;
+    }
+
+    const startD = getDateForWeek(store.appState.bodyProfile.startDate, d.startWeek);
+    const endD = getDateForWeek(store.appState.bodyProfile.startDate, d.endWeek);
+    let tramoText = "";
+    if (d.freq === "single") {
+      tramoText = `<div>Sem ${d.startWeek}</div>${startD ? `<small class="hint-date">${startD}</small>` : ""}`;
+    } else {
+      tramoText = `<div>${d.startWeek}–${d.endWeek}</div>${startD && endD ? `<small class="hint-date">${startD} al ${endD}</small>` : ""}`;
+    }
+
     tr.innerHTML = `
-      <td><span class="badge-pill ${isCalci ? "badge-calci" : "badge-d3"}">${isCalci ? "25OHD" : "D3"}</span></td>
+      <td><span class="badge-pill ${isCalci ? "badge-calci" : "badge-d3"}">${isCalci ? "Hidroferol" : "D3"}</span></td>
       <td title="${doseStr}">${doseStr}</td>
       <td>${tramoText}</td>
       <td><button type="button" class="btn-del" aria-label="Eliminar dosis">&times;</button></td>
@@ -217,8 +245,7 @@ export function syncUIWithState() {
   $id("height").value = bp.height;
   $id("weight").value = bp.weight;
   $id("bodyFat").value = bp.bodyFat;
-  $id("skinTone").value = String(bp.skinTone);
-  $id("sunExposure").value = String(bp.sunExposure);
+  if ($id("startDate")) $id("startDate").value = bp.startDate || getTodayDateString();
   $id("simWeeks").value = bp.simWeeks;
 
   updateUnitLabels();
@@ -281,13 +308,13 @@ export function generateTargetPlans() {
       desc: "Una toma cada 7 días para simplificar adherencia a largo plazo."
     },
     {
-      title: "Estrategia 3: Calcifediol 25(OH)D3",
-      tag: "ACCIÓN RÁPIDA (3.15×)",
+      title: "Estrategia 3: Hidroferol (Calcifediol)",
+      tag: "ACCIÓN RÁPIDA • CÁPSULAS 266 µg",
       recommended: false,
-      freq: "weekly",
+      freq: "biweekly",
       doseType: "calcifediol",
-      freqLabel: "semanales (equiv. UI)",
-      desc: "Ingresa directo al compartimento sérico omitiendo el secuestro adiposo inicial."
+      freqLabel: "quincenales",
+      desc: "Cápsulas blandas de 0,266 mg (266 µg). Absorción directa en suero sin depender de hidroxilación hepática."
     }
   ];
 
@@ -301,6 +328,15 @@ export function generateTargetPlans() {
       strat.doseType
     );
 
+    const isCalci = strat.doseType === "calcifediol";
+    let loadDoseText = "";
+    if (isCalci) {
+      const caps = Math.round(solved.loadUg / 266);
+      loadDoseText = `${solved.loadUg} µg (${caps} cáp. de 0,266 mg) ${strat.freqLabel}`;
+    } else {
+      loadDoseText = `${solved.loadIU.toLocaleString()} UI ${strat.freqLabel}`;
+    }
+
     const card = document.createElement("div");
     card.className = `strategy-card ${strat.recommended ? "recommended" : ""}`;
     card.innerHTML = `
@@ -309,7 +345,7 @@ export function generateTargetPlans() {
         <h3>${strat.title}</h3>
         <p class="hint">${strat.desc}</p>
         <div class="strategy-metrics">
-          <div><strong>Carga (Sem 0–${loadWeeks}):</strong> ${solved.loadIU.toLocaleString()} UI ${strat.freqLabel}</div>
+          <div><strong>Carga (Sem 0–${loadWeeks}):</strong> ${loadDoseText}</div>
           ${maintWeeks > 0 ? `<div><strong>Mantención (Sem ${loadWeeks}–${loadWeeks + maintWeeks}):</strong> ${solved.maintIU.toLocaleString()} UI D3/día</div>` : ""}
           <div><strong>Pico máximo:</strong> ${formatLevel(solved.peakNg, 1)}</div>
           <div><strong>Cierre proyectado:</strong> ${formatLevel(solved.endNg, 1)}</div>
@@ -323,7 +359,9 @@ export function generateTargetPlans() {
         {
           id: cryptoId(),
           type: strat.doseType,
-          iu: solved.loadIU,
+          amount: isCalci ? solved.loadUg : solved.loadIU,
+          ug: isCalci ? solved.loadUg : Math.round(solved.loadIU / 40),
+          iu: isCalci ? Math.round(solved.loadUg * 60) : solved.loadIU,
           freq: strat.freq,
           startWeek: 0,
           endWeek: loadWeeks
@@ -333,7 +371,9 @@ export function generateTargetPlans() {
         store.appState.doses.push({
           id: cryptoId(),
           type: "d3",
+          amount: solved.maintIU,
           iu: solved.maintIU,
+          ug: Math.round(solved.maintIU / 40),
           freq: "daily",
           startWeek: loadWeeks,
           endWeek: loadWeeks + maintWeeks
