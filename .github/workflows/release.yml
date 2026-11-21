@@ -22,11 +22,39 @@ jobs:
           Add-MpPreference -ExclusionPath "$env:USERPROFILE\.rustup"
           Add-MpPreference -ExclusionProcess "rustc.exe", "cargo.exe", "link.exe", "lld-link.exe", "makensis.exe", "candle.exe", "light.exe"
           git config --global core.autocrlf false
+          if (Get-Command lld-link -ErrorAction SilentlyContinue) {
+            "RUSTFLAGS=-C linker=lld-link" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          }
 
       - name: Descargar repositorio
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Verificar coincidencia de versión con tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tagVer = "${{ github.ref_name }}".TrimStart('v')
+          $pkgVer = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tauriVer = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $cargoMatch = [regex]::Match((Get-Content src-tauri/Cargo.toml -Raw), '(?m)^version\s*=\s*"([^"]+)"')
+          $cargoVer = if ($cargoMatch.Success) { $cargoMatch.Groups[1].Value } else { "" }
+          $stateMatch = [regex]::Match((Get-Content ui/js/state.js -Raw), 'APP_VERSION\s*=\s*"([^"]+)"')
+          $stateVer = if ($stateMatch.Success) { $stateMatch.Groups[1].Value } else { "" }
+          $checks = @{
+            "package.json" = $pkgVer
+            "src-tauri/tauri.conf.json" = $tauriVer
+            "src-tauri/Cargo.toml" = $cargoVer
+            "ui/js/state.js" = $stateVer
+          }
+          foreach ($entry in $checks.GetEnumerator()) {
+            if ($entry.Value -ne $tagVer) {
+              Write-Error "Desfase de versión en $($entry.Key): esperado '$tagVer', encontrado '$($entry.Value)'."
+              exit 1
+            }
+          }
+          Write-Host "Versión verificada ($tagVer) en todos los archivos."
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -43,6 +71,7 @@ jobs:
           workspaces: src-tauri
           shared-key: "windows-release"
           cache-on-failure: true
+          cache-all-crates: false
 
       - name: Instalar dependencias npm
         run: npm ci
@@ -92,7 +121,9 @@ jobs:
         run: |
           SDKMGR="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           PKGS=()
-          [ -d "$ANDROID_HOME/ndk/27.2.12479018" ] || PKGS+=("ndk;27.2.12479018")
+          if ! ls -d "$ANDROID_HOME/ndk/27."* "$ANDROID_HOME/ndk/28."* >/dev/null 2>&1; then
+            PKGS+=("ndk;27.2.12479018")
+          fi
           [ -d "$ANDROID_HOME/build-tools/35.0.0" ] || PKGS+=("build-tools;35.0.0")
           [ -d "$ANDROID_HOME/platforms/android-35" ] || PKGS+=("platforms;android-35")
           if [ ${#PKGS[@]} -gt 0 ]; then
@@ -103,17 +134,18 @@ jobs:
           echo "NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
 
-      - name: Configurar Rust + targets Android (ARM)
+      - name: Configurar Rust + targets Android (ARM64)
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android
 
       - name: Caché de Rust
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          shared-key: "android-arm-release"
+          shared-key: "android-arm64-release"
           cache-on-failure: true
+          cache-all-crates: false
 
       - name: Instalar dependencias npm
         run: npm ci
@@ -121,7 +153,7 @@ jobs:
       - name: Inicializar y compilar APK Release
         run: |
           npx tauri android init
-          npx tauri android build --apk --target aarch64 --target armv7
+          npx tauri android build --apk --target aarch64
 
       - name: Alinear y firmar APK con Keystore fijo
         env:
