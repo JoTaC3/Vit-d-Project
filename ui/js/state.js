@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MÃ³dulo de Estado, Perfiles y Persistencia
  */
 
