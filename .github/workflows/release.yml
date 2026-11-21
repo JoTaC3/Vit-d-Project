@@ -121,11 +121,15 @@ jobs:
         run: |
           SDKMGR="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           PKGS=()
-          if ! ls -d "$ANDROID_HOME/ndk/27."* "$ANDROID_HOME/ndk/28."* >/dev/null 2>&1; then
+          if ! ls -d "$ANDROID_HOME/ndk/"* >/dev/null 2>&1; then
             PKGS+=("ndk;27.2.12479018")
           fi
-          [ -d "$ANDROID_HOME/build-tools/35.0.0" ] || PKGS+=("build-tools;35.0.0")
-          [ -d "$ANDROID_HOME/platforms/android-35" ] || PKGS+=("platforms;android-35")
+          if ! ls -d "$ANDROID_HOME/build-tools/3"[5-9].* >/dev/null 2>&1; then
+            PKGS+=("build-tools;35.0.0")
+          fi
+          if ! ls -d "$ANDROID_HOME/platforms/android-3"[5-9] >/dev/null 2>&1; then
+            PKGS+=("platforms;android-35")
+          fi
           if [ ${#PKGS[@]} -gt 0 ]; then
             yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
             "$SDKMGR" --install "${PKGS[@]}"
@@ -152,7 +156,7 @@ jobs:
 
       - name: Inicializar y compilar APK Release
         run: |
-          npx tauri android init
+          npx tauri android init --ci --skip-targets-install
           npx tauri android build --apk --target aarch64
 
       - name: Alinear y firmar APK con Keystore fijo
