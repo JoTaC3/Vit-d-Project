@@ -167,5 +167,6 @@ jobs:
       - name: Subir APK firmado al Release de GitHub
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh release upload "${{ github.ref_name }}" "Vitamina-D-Simulator-${{ github.ref_name }}-android.apk" --clobber
+          gh release upload "${{ github.ref_name }}" "Vitamina-D-Simulator-${{ github.ref_name }}-android.apk" --repo "${{ github.repository }}" --clobber
