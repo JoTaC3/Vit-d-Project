@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.3.22"
+version = "0.3.23"
 description = "Diol — Simulador farmacocinético PopPK de Vitamina D"
 authors = ["you"]
 license = ""

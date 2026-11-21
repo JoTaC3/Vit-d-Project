@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Diol v0.3.22</title>
+  <title>Diol v0.3.23</title>
   <link rel="stylesheet" href="vendor/katex/katex.min.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="chart.umd.min.js"></script>
@@ -12,7 +12,7 @@
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 512 512" fill="none">
+        <svg width="28" height="28" viewBox="0 0 512 512" fill="none">
           <polygon points="116,136 184,96 184,368 116,408" fill="#306998"/>
           <polygon points="184,96 276,120 276,176 184,152" fill="currentColor" fill-opacity="0.9"/>
           <path d="M184 152 V368 H264 A136 136 0 0 0 388 214 L322 238 A74 74 0 0 1 258 308 H242 V168 Z" fill="#74B9FF"/>
@@ -23,7 +23,6 @@
       <div class="brand-text">
         <div class="brand-title-row">
           <h1>Diol</h1>
-          <span class="version-chip">v0.3.22</span>
         </div>
       </div>
     </div>
@@ -38,24 +37,18 @@
     <div class="topbar-controls">
       <div class="profile-dock">
         <div class="profile-select-group">
-          <label for="profileSelector" class="micro-label">PERFIL</label>
           <select id="profileSelector" aria-label="Seleccionar perfil activo"></select>
         </div>
         <div class="dock-btn-group">
-          <button type="button" id="openProfileModalBtn" class="btn-instrument btn-sm" title="Gestionar perfiles">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span>Perfiles</span>
+          <button type="button" id="openProfileModalBtn" class="btn-instrument btn-sm" title="Gestionar perfiles"><span>Perfiles</span>
           </button>
-          <button type="button" id="saveProfileBtn" class="btn-instrument btn-sm" title="Guardar cambios en perfil actual">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            <span>Guardar</span>
+          <button type="button" id="saveProfileBtn" class="btn-instrument btn-sm" title="Guardar cambios en perfil actual"><span>Guardar</span>
           </button>
         </div>
       </div>
 
       <div class="instrument-switches">
         <div class="rocker-group" role="group" aria-label="Selector de unidades">
-          <span class="micro-label">UNIDAD</span>
           <div class="rocker-switch" id="unitToggle">
             <button type="button" data-unit="ng/mL" class="active">ng/mL</button>
             <button type="button" data-unit="nmol/L">nmol/L</button>
@@ -70,24 +63,6 @@
     </div>
   </header>
 
-  <nav class="tab-nav" role="tablist" aria-label="Secciones principales">
-    <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab="simulador">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      <span>Simulador PK &amp; Dosis</span>
-    </button>
-    <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="planificador">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-      <span>Planificador Inverso</span>
-    </button>
-    <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="memorias">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-      <span>Memorias Guardadas</span>
-    </button>
-    <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="ciencia">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 9h4"/><path d="M10 3v6l-4 8a2 2 0 0 0 1.8 3h8.4a2 2 0 0 0 1.8-3l-4-8V3"/></svg>
-      <span>Modelo Matemático</span>
-    </button>
-  </nav>
 
   <main class="container">
     <!-- TAB 1: SIMULADOR -->
@@ -329,6 +304,7 @@
 
         <section class="main-panel">
           <!-- TELEMETRY KPI STRIP -->
+          <div class="telemetry-deck">
           <div class="telemetry-grid">
             <div class="telemetry-card">
               <span class="telemetry-label">BASAL INICIAL (SEM 0)</span>
@@ -361,19 +337,13 @@
           <div id="safetyBanner" class="status-banner info" role="status">
             Cargando telemetría farmacocinética...
           </div>
+          </div>
 
           <!-- PRIMARY INTERACTIVE CHART DECK -->
           <div class="panel-card chart-deck">
             <div class="chart-deck-header">
               <div>
                 <h2>Trayectoria Sérica 25(OH)D3 y Calibración</h2>
-              </div>
-              <div class="snapshot-bar">
-                <input type="text" id="simTitleInput" placeholder="Nombre (ej. Protocolo Diciembre)" aria-label="Nombre de simulación" />
-                <button type="button" id="saveSimBtn" class="btn-instrument btn-sm">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
-                  <span>Guardar Memoria</span>
-                </button>
               </div>
             </div>
 
@@ -417,13 +387,17 @@
               </div>
               <input type="range" id="chartScrubber" class="week-scrubber" min="0" max="24" step="0.25" value="0" aria-label="Explorar semana en el gráfico" />
             </div>
+              <div class="snapshot-bar">
+                <input type="text" id="simTitleInput" placeholder="Nombre (ej. Protocolo Diciembre)" aria-label="Nombre de simulación" />
+                <button type="button" id="saveSimBtn" class="btn-instrument btn-sm"><span>Guardar Memoria</span>
+                </button>
+              </div>
           </div>
 
           <div class="two-col-charts">
             <div class="panel-card chart-deck">
               <div class="subchart-head">
                 <h3>Compartimento Adiposo vs. D3 Libre</h3>
-                <span class="mono-tag">kUI</span>
               </div>
               <div class="chart-container-sm">
                 <canvas id="adiposeChart"></canvas>
@@ -433,7 +407,6 @@
             <div class="panel-card chart-deck">
               <div class="subchart-head">
                 <h3>Aporte Equivalente Biodisponible</h3>
-                <span class="mono-tag">UI / día</span>
               </div>
               <div class="chart-container-sm">
                 <canvas id="intakeChart"></canvas>
