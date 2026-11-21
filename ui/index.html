@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Vitamina D Simulator v0.3.16</title>
+  <title>Vitamina D Simulator v0.3.17</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="chart.umd.min.js"></script>
 </head>
@@ -19,7 +19,7 @@
       <div class="brand-text">
         <div class="brand-title-row">
           <h1>Vitamina D Simulator</h1>
-          <span class="version-chip">v0.3.16</span>
+          <span class="version-chip">v0.3.17</span>
         </div>      </div>
     </div>
 
@@ -502,57 +502,193 @@
           <div class="science-box">
             <span class="mono-tag">1. SISTEMA ODE DE 4 ESTADOS (RK4)</span>
             <h3>Cómo viaja y se transforma la dosis</h3>
-            <p>Cada toma entra primero al intestino (<code>gut</code>) y pasa progresivamente a la circulación y tejidos (<code>pool</code>). Se separan colecalciferol (D<sub>3</sub>) y calcifediol (25D) porque tienen velocidades muy distintas; al sumarse sobre el nivel basal reflejan la 25(OH)D total en sangre.</p>
-            <code>d(gut<sub>D3</sub>)/dt = −k<sub>a,D3</sub> · gut<sub>D3</sub> &nbsp;(k<sub>a,D3</sub> = 0,28 d<sup>−1</sup>)<br>d(gut<sub>25D</sub>)/dt = −k<sub>a,25D</sub> · gut<sub>25D</sub> &nbsp;(k<sub>a,25D</sub> = 1,40 d<sup>−1</sup>)<br>d(pool<sub>D3</sub>)/dt = k<sub>a,D3</sub>·gut<sub>D3</sub> + J<sub>lip</sub> − k<sub>e,D3</sub>(C)·pool<sub>D3</sub><br>d(pool<sub>25D</sub>)/dt = k<sub>a,25D</sub>·gut<sub>25D</sub> − k<sub>e,25D</sub>(C)·pool<sub>25D</sub><br>C(t) = max(1, C<sub>base</sub> + pool<sub>D3</sub>/v<sub>rel,D3</sub> + pool<sub>25D</sub>/v<sub>rel,25D</sub>)</code>
+            <p>Cada toma entra primero al intestino (<code class="inline-sym">gut</code>) y pasa progresivamente a la circulación y tejidos (<code class="inline-sym">pool</code>). Se separan colecalciferol (D<sub>3</sub>) y calcifediol (25D) porque tienen velocidades muy distintas; al sumarse sobre el nivel basal reflejan la 25(OH)D total en sangre.</p>
+            <div class="eq-sheet">
+              <div class="eq-row">
+                <span class="eq-expr"><span class="eq-frac"><span class="eq-num">d <var>gut</var><sub>D3</sub></span><span class="eq-den">dt</span></span> = &minus;<var>k</var><sub>a,D3</sub> &middot; <var>gut</var><sub>D3</sub></span>
+                <span class="eq-tag">k<sub>a,D3</sub> = 0,28 d<sup>&minus;1</sup></span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><span class="eq-frac"><span class="eq-num">d <var>gut</var><sub>25D</sub></span><span class="eq-den">dt</span></span> = &minus;<var>k</var><sub>a,25D</sub> &middot; <var>gut</var><sub>25D</sub></span>
+                <span class="eq-tag">k<sub>a,25D</sub> = 1,40 d<sup>&minus;1</sup></span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><span class="eq-frac"><span class="eq-num">d <var>pool</var><sub>D3</sub></span><span class="eq-den">dt</span></span> = <var>k</var><sub>a,D3</sub>&middot;<var>gut</var><sub>D3</sub> + <var>J</var><sub>lip</sub> &minus; <var>k</var><sub>e,D3</sub>(<var>C</var>)&middot;<var>pool</var><sub>D3</sub></span>
+                <span class="eq-tag">Vía D<sub>3</sub></span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><span class="eq-frac"><span class="eq-num">d <var>pool</var><sub>25D</sub></span><span class="eq-den">dt</span></span> = <var>k</var><sub>a,25D</sub>&middot;<var>gut</var><sub>25D</sub> &minus; <var>k</var><sub>e,25D</sub>(<var>C</var>)&middot;<var>pool</var><sub>25D</sub></span>
+                <span class="eq-tag">Vía 25D</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>C</var>(<var>t</var>) = max&#x2009;(1, <var>C</var><sub>base</sub> + <span class="eq-frac"><span class="eq-num"><var>pool</var><sub>D3</sub></span><span class="eq-den"><var>v</var><sub>rel,D3</sub></span></span> + <span class="eq-frac"><span class="eq-num"><var>pool</var><sub>25D</sub></span><span class="eq-den"><var>v</var><sub>rel,25D</sub></span></span>)</span>
+                <span class="eq-tag">[ng/mL]</span>
+              </div>
+            </div>
           </div>
 
           <div class="science-box">
             <span class="mono-tag">2. ALOMETRÍA CORPORAL Y CUN-BAE</span>
             <h3>Por qué el peso y la grasa cambian la dosis</h3>
-            <p>La vitamina D<sub>3</sub> es muy lipofílica y se diluye en el tejido adiposo, mientras que el calcifediol es más hidrosoluble y responde sobre todo a la masa magra (FFM). Si no conoces tu % de grasa, el botón <strong>CUN-BAE</strong> lo estima desde edad, sexo e IMC (Gómez-Ambrosi 2012).</p>
-            <code>FM = peso · (%GC / 100), &nbsp;FFM = max(25, peso − FM)<br>v<sub>rel,D3</sub> = max(0,55, 0,40·(FFM/56)<sup>0,75</sup> + 0,60·(FM/14))<br>v<sub>rel,25D</sub> = max(0,65, 0,78·(FFM/56)<sup>0,75</sup> + 0,22·(FM/14))<br>V<sub>d,D3</sub> = 13,8 · v<sub>rel,D3</sub> [L]<br>%GC = −44,988 + 0,503·edad + 10,689·S + 3,172·IMC − 0,026·IMC<sup>2</sup> + 0,00018·IMC<sup>2</sup>·edad − 0,020·IMC·edad − 0,005·IMC<sup>2</sup>·S</code>
+            <p>La vitamina D<sub>3</sub> es muy lipofílica y se diluye en el tejido adiposo (<var>FM</var>), mientras que el calcifediol es más hidrosoluble y responde sobre todo a la masa magra (<var>FFM</var>). Si no conoces tu % de grasa, <strong>CUN-BAE</strong> lo estima desde edad, sexo e IMC (Gómez-Ambrosi 2012).</p>
+            <div class="eq-sheet">
+              <div class="eq-row">
+                <span class="eq-expr"><var>FM</var> = peso &middot; <span class="eq-frac"><span class="eq-num">%GC</span><span class="eq-den">100</span></span> &nbsp;|&nbsp; <var>FFM</var> = max(25, peso &minus; <var>FM</var>)</span>
+                <span class="eq-tag">[kg]</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>v</var><sub>rel,D3</sub> = max&#x2009;(0,55, &nbsp;0,40&middot;(<span class="eq-frac"><span class="eq-num"><var>FFM</var></span><span class="eq-den">56</span></span>)<sup>0,75</sup> + 0,60&middot;<span class="eq-frac"><span class="eq-num"><var>FM</var></span><span class="eq-den">14</span></span>)</span>
+                <span class="eq-tag">Alometría D<sub>3</sub></span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>v</var><sub>rel,25D</sub> = max&#x2009;(0,65, &nbsp;0,78&middot;(<span class="eq-frac"><span class="eq-num"><var>FFM</var></span><span class="eq-den">56</span></span>)<sup>0,75</sup> + 0,22&middot;<span class="eq-frac"><span class="eq-num"><var>FM</var></span><span class="eq-den">14</span></span>)</span>
+                <span class="eq-tag">Alometría 25D</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>V</var><sub>d,D3</sub> = 13,8 &middot; <var>v</var><sub>rel,D3</sub></span>
+                <span class="eq-tag">[L]</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr">%GC = &minus;44,988 + 0,503&middot;edad + 10,689&middot;<var>S</var> + 3,172&middot;IMC &minus; 0,026&middot;IMC<sup>2</sup> + 0,00018&middot;IMC<sup>2</sup>&middot;edad &minus; 0,020&middot;IMC&middot;edad &minus; 0,005&middot;IMC<sup>2</sup>&middot;<var>S</var></span>
+                <span class="eq-tag">S: 0 H / 1 M</span>
+              </div>
+            </div>
           </div>
 
           <div class="science-box">
             <span class="mono-tag">3. SATURACIÓN DE HILL Y CYP2R1</span>
             <h3>Por qué megadosis rinden proporcionalmente menos</h3>
-            <p>El intestino y la enzima hepática CYP2R1 se saturan ante bolos gigantes: dos dosis diarias moderadas aprovechan mejor la ruta que un bolo masivo. Además, el exceso adiposo reprime parcialmente la conversión hepática de D<sub>3</sub> (β = 0,16), efecto que el calcifediol evita al llegar ya hidroxilado.</p>
-            <code>η<sub>D3</sub>(UI) = 1 / (1 + (UI / 180.000)<sup>0,85</sup>)<br>η<sub>25D</sub>(mg) = 1 / (1 + (mg / 2,50)<sup>0,85</sup>)<br>f<sub>CYP2R1</sub> = 1 / (1 + 0,16 · max(0, FM/14 − 1))<br>Δgut<sub>D3</sub> = UI · η<sub>D3</sub> · 0,00041 · f<sub>CYP2R1</sub> · exp(η<sub>gain</sub>)<br>Δgut<sub>25D</sub> = µg · η<sub>25D</sub> · 0,068 · exp(0,5·η<sub>gain</sub>)</code>
+            <p>El intestino y la enzima hepática CYP2R1 se saturan ante bolos gigantes: dos dosis diarias moderadas aprovechan mejor la ruta que un bolo masivo. El exceso adiposo reprime parcialmente la conversión hepática de D<sub>3</sub> (&beta; = 0,16), paso que el calcifediol evita al llegar ya hidroxilado.</p>
+            <div class="eq-sheet">
+              <div class="eq-row">
+                <span class="eq-expr">&eta;<sub>D3</sub>(UI) = <span class="eq-frac"><span class="eq-num">1</span><span class="eq-den">1 + (UI / 180.000)<sup>0,85</sup></span></span></span>
+                <span class="eq-tag">D<sub>50</sub> = 180 kUI</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr">&eta;<sub>25D</sub>(mg) = <span class="eq-frac"><span class="eq-num">1</span><span class="eq-den">1 + (mg / 2,50)<sup>0,85</sup></span></span></span>
+                <span class="eq-tag">D<sub>50</sub> = 2,5 mg</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>f</var><sub>CYP2R1</sub> = <span class="eq-frac"><span class="eq-num">1</span><span class="eq-den">1 + 0,16 &middot; max(0, <var>FM</var>/14 &minus; 1)</span></span></span>
+                <span class="eq-tag">&beta; = 0,16</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr">&Delta;<var>gut</var><sub>D3</sub> = UI &middot; &eta;<sub>D3</sub> &middot; 0,00041 &middot; <var>f</var><sub>CYP2R1</sub> &middot; exp(&eta;<sub>gain</sub>)</span>
+                <span class="eq-tag">Carga D<sub>3</sub></span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr">&Delta;<var>gut</var><sub>25D</sub> = &micro;g &middot; &eta;<sub>25D</sub> &middot; 0,068 &middot; exp(0,5&middot;&eta;<sub>gain</sub>)</span>
+                <span class="eq-tag">Carga 25D</span>
+              </div>
+            </div>
           </div>
 
           <div class="science-box">
             <span class="mono-tag">4. ACLARAMIENTO DIFERENCIADO Y CYP24A1</span>
             <h3>Velocidad de bajada y freno fisiológico</h3>
-            <p>La D<sub>3</sub> almacenada permanece mucho más tiempo (semivida 28 días) que el calcifediol (15 días). Cuando la sangre supera los 30 ng/mL (75 nmol/L), el organismo induce la enzima catabólica CYP24A1 para acelerar la depuración y amortiguar subidas excesivas.</p>
-            <code>t<sub>1/2,D3</sub> = 28,0 d, &nbsp;t<sub>1/2,25D</sub> = 15,0 d<br>φ<sub>CYP24</sub>(C) = 1 + 0,35·max(0, C−30) / (50 + max(0, C−30))<br>k<sub>e,D3</sub>(C) = (ln 2 / 28,0) · φ<sub>CYP24</sub>(C) · exp(η<sub>ke</sub>)<br>k<sub>e,25D</sub>(C) = (ln 2 / 15,0) · φ<sub>CYP24</sub>(C) · exp(η<sub>ke</sub>)</code>
+            <p>La D<sub>3</sub> almacenada permanece mucho más tiempo (semivida 28 días) que el calcifediol (15 días). Cuando la concentración supera los 30 ng/mL (75 nmol/L), el organismo induce la enzima catabólica CYP24A1 para acelerar la depuración y amortiguar subidas excesivas.</p>
+            <div class="eq-sheet">
+              <div class="eq-row">
+                <span class="eq-expr"><var>t</var><sub>1/2,D3</sub> = 28,0 d &nbsp;&middot;&nbsp; <var>t</var><sub>1/2,25D</sub> = 15,0 d</span>
+                <span class="eq-tag">Semividas</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr">&phi;<sub>CYP24</sub>(<var>C</var>) = 1 + <span class="eq-frac"><span class="eq-num">0,35 &middot; max(0, <var>C</var> &minus; 30)</span><span class="eq-den">50 + max(0, <var>C</var> &minus; 30)</span></span></span>
+                <span class="eq-tag">Umbral 30 ng/mL</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>k</var><sub>e,D3</sub>(<var>C</var>) = <span class="eq-frac"><span class="eq-num">ln 2</span><span class="eq-den">28,0</span></span> &middot; &phi;<sub>CYP24</sub>(<var>C</var>) &middot; exp(&eta;<sub>ke</sub>)</span>
+                <span class="eq-tag">[d<sup>&minus;1</sup>]</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>k</var><sub>e,25D</sub>(<var>C</var>) = <span class="eq-frac"><span class="eq-num">ln 2</span><span class="eq-den">15,0</span></span> &middot; &phi;<sub>CYP24</sub>(<var>C</var>) &middot; exp(&eta;<sub>ke</sub>)</span>
+                <span class="eq-tag">[d<sup>&minus;1</sup>]</span>
+              </div>
+            </div>
           </div>
 
           <div class="science-box">
             <span class="mono-tag">5. MOVILIZACIÓN LIPOLÍTICA Y RESERVA</span>
             <h3>Liberación al perder grasa corporal</h3>
-            <p>Al registrar pérdida de peso y grasa en el control antropométrico, parte de la vitamina D secuestrada en los adipocitos regresa gradualmente a la sangre (γ<sub>lip</sub> = 0,45 ng/mL por kg de grasa perdido). El gráfico secundario separa esa reserva lipofílica del pool circulante.</p>
-            <code>J<sub>lip</sub>(t) = 0,45 · max(0, −dFM/dt) · (C(t) / 25) · v<sub>rel,D3</sub>(t)<br>f<sub>adip</sub> = clamp((0,60 · FM/14) / v<sub>rel,D3</sub>, 0, 1)</code>
+            <p>Al registrar pérdida de peso y grasa en el control antropométrico, parte de la vitamina D secuestrada en los adipocitos regresa gradualmente a la sangre (&gamma;<sub>lip</sub> = 0,45 ng/mL por kg de grasa perdido). El gráfico secundario separa esa reserva lipofílica del pool circulante.</p>
+            <div class="eq-sheet">
+              <div class="eq-row">
+                <span class="eq-expr"><var>J</var><sub>lip</sub>(<var>t</var>) = 0,45 &middot; max(0, &minus;<span class="eq-frac"><span class="eq-num">d <var>FM</var></span><span class="eq-den">dt</span></span>) &middot; <span class="eq-frac"><span class="eq-num"><var>C</var>(<var>t</var>)</span><span class="eq-den">25</span></span> &middot; <var>v</var><sub>rel,D3</sub>(<var>t</var>)</span>
+                <span class="eq-tag">&gamma;<sub>lip</sub> = 0,45</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>f</var><sub>adip</sub> = clamp(<span class="eq-frac"><span class="eq-num">0,60 &middot; <var>FM</var>/14</span><span class="eq-den"><var>v</var><sub>rel,D3</sub></span></span>, 0, 1)</span>
+                <span class="eq-tag">Fracción adiposa</span>
+              </div>
+            </div>
           </div>
 
           <div class="science-box">
             <span class="mono-tag">6. CALIBRACIÓN BAYESIANA MAP (MIPD)</span>
             <h3>Cómo aprende el modelo de tus análisis</h3>
-            <p>Cada examen posterior a la semana 0,5 permite estimar tu respuesta individual en absorción/conversión (η<sub>gain</sub>) y velocidad de eliminación (η<sub>ke</sub>), equilibrando tus datos reales frente a la variabilidad poblacional esperada (ω) y al margen de error del laboratorio (RUV).</p>
-            <code>σ<sub>RUV,i</sub><sup>2</sup> = 1,5<sup>2</sup> + (0,08 · C<sub>pred</sub>(t<sub>i</sub>))<sup>2</sup><br>L(η<sub>gain</sub>, η<sub>ke</sub>) = (η<sub>gain</sub>/0,28)<sup>2</sup> + (η<sub>ke</sub>/0,25)<sup>2</sup> + Σ[(C<sub>pred,i</sub>−y<sub>i</sub>)<sup>2</sup>/σ<sub>RUV,i</sub><sup>2</sup> + ln σ<sub>RUV,i</sub><sup>2</sup>]<br>η<sub>gain</sub>, η<sub>ke</sub> ∈ [−0,75, +0,75]</code>
+            <p>Cada examen posterior a la semana 0,5 permite estimar tu respuesta individual en absorción/conversión (&eta;<sub>gain</sub>) y velocidad de eliminación (&eta;<sub>ke</sub>), equilibrando tus datos reales frente a la variabilidad poblacional (&omega;) y al error de laboratorio (RUV).</p>
+            <div class="eq-sheet">
+              <div class="eq-row">
+                <span class="eq-expr">&sigma;<sub>RUV,i</sub><sup>2</sup> = 1,5<sup>2</sup> + (0,08 &middot; <var>C</var><sub>pred</sub>(<var>t</var><sub>i</sub>))<sup>2</sup></span>
+                <span class="eq-tag">Error ensayo</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>L</var>(&eta;<sub>gain</sub>, &eta;<sub>ke</sub>) = (<span class="eq-frac"><span class="eq-num">&eta;<sub>gain</sub></span><span class="eq-den">0,28</span></span>)<sup>2</sup> + (<span class="eq-frac"><span class="eq-num">&eta;<sub>ke</sub></span><span class="eq-den">0,25</span></span>)<sup>2</sup> + &Sigma; [<span class="eq-frac"><span class="eq-num">(<var>C</var><sub>pred,i</sub> &minus; <var>y</var><sub>i</sub>)<sup>2</sup></span><span class="eq-den">&sigma;<sub>RUV,i</sub><sup>2</sup></span></span> + ln &sigma;<sub>RUV,i</sub><sup>2</sup>]</span>
+                <span class="eq-tag">Minimizar L</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr">&eta;<sub>gain</sub>, &eta;<sub>ke</sub> &isin; [&minus;0,75, +0,75]</span>
+                <span class="eq-tag">Límites MAP</span>
+              </div>
+            </div>
           </div>
 
           <div class="science-box">
             <span class="mono-tag">7. BANDA IC 90% Y PLANIFICADOR INVERSO</span>
             <h3>Incertidumbre estadística y cálculo de meta</h3>
-            <p>La franja sombreada representa el intervalo de predicción del 90% (z = 1,645): es amplia al inicio y se estrecha conforme agregas análisis de control. El Planificador Inverso invierte todo el modelo RK4 mediante búsqueda binaria para hallar carga y mantención exactas hacia tu meta.</p>
-            <code>σ<sub>MAP</sub> = ω / √(1 + 0,85 · N<sub>exámenes</sub>)<br>C<sub>base,IC</sub> = C<sub>base</sub> ± 1,645·√(1,5<sup>2</sup> + (0,06·C<sub>base</sub>)<sup>2</sup>)<br>η<sub>IC</sub> = η ± (1,645 / √2)·σ<sub>MAP</sub></code>
+            <p>La franja sombreada representa el intervalo de predicción del 90% (<var>z</var> = 1,645): es amplia sin exámenes y se contrae al añadir controles. El Planificador Inverso invierte todo el modelo RK4 mediante búsqueda binaria para hallar carga y mantención exactas.</p>
+            <div class="eq-sheet">
+              <div class="eq-row">
+                <span class="eq-expr">&sigma;<sub>MAP</sub> = <span class="eq-frac"><span class="eq-num">&omega;</span><span class="eq-den">&radic;(1 + 0,85 &middot; <var>N</var><sub>exámenes</sub>)</span></span></span>
+                <span class="eq-tag">Contracción</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr"><var>C</var><sub>base,IC</sub> = <var>C</var><sub>base</sub> &plusmn; 1,645 &middot; &radic;(1,5<sup>2</sup> + (0,06 &middot; <var>C</var><sub>base</sub>)<sup>2</sup>)</span>
+                <span class="eq-tag">Error basal</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr">&eta;<sub>IC</sub> = &eta; &plusmn; <span class="eq-frac"><span class="eq-num">1,645</span><span class="eq-den">&radic;2</span></span> &middot; &sigma;<sub>MAP</sub></span>
+                <span class="eq-tag">IC 90%</span>
+              </div>
+            </div>
           </div>
 
           <div class="science-box">
             <span class="mono-tag">8. UNIDADES Y REFERENCIA CLÍNICA</span>
             <h3>Equivalencias exactas de la plataforma</h3>
-            <p>Internamente el motor opera en ng/mL y convierte automáticamente toda la interfaz, gráficos y umbrales al seleccionar nmol/L. En Hidroferol cada cápsula estándar aporta 266 µg (0,266 mg), con eficacia sérica superior por vía directa.</p>
-            <code>1 ng/mL = 2,496 nmol/L &nbsp;•&nbsp; 1 µg D<sub>3</sub> = 40 UI &nbsp;•&nbsp; 1 kUI = 1.000 UI<br>1 cáp. Hidroferol = 266 µg = 0,266 mg (~16.000 UI eq.)<br>Deficiencia &lt; 20 ng/mL (&lt; 50 nmol/L) • Insuf. 20–30 (50–75)<br>Óptimo 30–60 ng/mL (75–150 nmol/L) • Sup. 60–100 (150–250) • Tox. &gt; 100 (&gt; 250)</code>
+            <p>Internamente el motor opera en ng/mL y convierte automáticamente interfaz, gráficos y umbrales al alternar a nmol/L. Cada cápsula estándar de Hidroferol aporta 266 &micro;g (0,266 mg), con mayor eficacia sérica por vía directa.</p>
+            <div class="eq-sheet">
+              <div class="eq-row">
+                <span class="eq-expr">1 ng/mL = 2,496 nmol/L &nbsp;&middot;&nbsp; 1 &micro;g D<sub>3</sub> = 40 UI</span>
+                <span class="eq-tag">1 kUI = 1.000 UI</span>
+              </div>
+              <div class="eq-row">
+                <span class="eq-expr">1 cáp. Hidroferol = 266 &micro;g = 0,266 mg</span>
+                <span class="eq-tag">~16.000 UI eq.</span>
+              </div>
+              <table class="eq-ref-table" aria-label="Rangos clínicos 25(OH)D">
+                <thead>
+                  <tr><th>Estado sérico</th><th>ng/mL</th><th>nmol/L</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Deficiencia</td><td>&lt; 20</td><td>&lt; 50</td></tr>
+                  <tr><td>Insuficiencia</td><td>20 &ndash; 30</td><td>50 &ndash; 75</td></tr>
+                  <tr><td>Óptimo clínico</td><td>30 &ndash; 60</td><td>75 &ndash; 150</td></tr>
+                  <tr><td>Suprafisiológico</td><td>60 &ndash; 100</td><td>150 &ndash; 250</td></tr>
+                  <tr><td>Riesgo toxicidad</td><td>&gt; 100</td><td>&gt; 250</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
