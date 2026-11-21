@@ -63,11 +63,11 @@ export function switchTab(tabName) {
 }
 
 function classifyVitaminDStatus(valNg) {
-  if (valNg < 20) return { label: "Deficiencia (< 20 ng/mL)", tone: "danger" };
-  if (valNg < 30) return { label: "Insuficiencia (20–30 ng/mL)", tone: "warning" };
-  if (valNg <= 60) return { label: "Rango Óptimo (30–60 ng/mL)", tone: "success" };
-  if (valNg <= 100) return { label: "Elevado / Supervisión (60–100 ng/mL)", tone: "warning" };
-  return { label: "Riesgo de Toxicidad (> 100 ng/mL)", tone: "danger" };
+  if (valNg < 20) return { label: `Deficiencia (< ${formatLevel(20, 0)})`, tone: "danger" };
+  if (valNg < 30) return { label: `Insuficiencia (${toDisplayUnit(20).toFixed(0)}–${formatLevel(30, 0)})`, tone: "warning" };
+  if (valNg <= 60) return { label: `Rango Óptimo (${toDisplayUnit(30).toFixed(0)}–${formatLevel(60, 0)})`, tone: "success" };
+  if (valNg <= 100) return { label: `Elevado / Supervisión (${toDisplayUnit(60).toFixed(0)}–${formatLevel(100, 0)})`, tone: "warning" };
+  return { label: `Riesgo de Toxicidad (> ${formatLevel(100, 0)})`, tone: "danger" };
 }
 
 function updateKPIs(traj, initialParams, totalWeeks, calibration = null) {
@@ -111,7 +111,7 @@ function updateKPIs(traj, initialParams, totalWeeks, calibration = null) {
 
   $id("kpiDailyAvg").textContent = `${Math.round(avgDailyIU).toLocaleString()} UI/d`;
   const mapSuffix = calibration?.calibrated
-    ? ` • MAP (${calibration.examCount} ex., RMSE ${toDisplayUnit(calibration.rmseNg).toFixed(1)})`
+    ? ` • MAP (${calibration.examCount} ex., RMSE ${formatLevel(calibration.rmseNg, 1)})`
     : "";
   $id("kpiVdInfo").textContent = `Vd: ${initialParams.effectiveVolume.toFixed(1)} L • IMC: ${initialParams.bmi.toFixed(1)}${mapSuffix}`;
 
@@ -130,10 +130,20 @@ function updateKPIs(traj, initialParams, totalWeeks, calibration = null) {
   }
 }
 
+let lastSimResult = null;
+
 export function runSimulationAndRender() {
-  const { totalWeeks, initialParams, calibration, mainTraj, lowerTraj, upperTraj } = simulateCurrentState();
-  updateKPIs(mainTraj, initialParams, totalWeeks, calibration);
-  renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks);
+  const sim = simulateCurrentState();
+  lastSimResult = sim;
+  updateKPIs(sim.mainTraj, sim.initialParams, sim.totalWeeks, sim.calibration);
+  renderCharts(sim.mainTraj, sim.lowerTraj, sim.upperTraj, sim.totalWeeks);
+}
+
+export function refreshDisplayFromLastSim() {
+  if (!lastSimResult) return false;
+  updateKPIs(lastSimResult.mainTraj, lastSimResult.initialParams, lastSimResult.totalWeeks, lastSimResult.calibration);
+  renderCharts(lastSimResult.mainTraj, lastSimResult.lowerTraj, lastSimResult.upperTraj, lastSimResult.totalWeeks);
+  return true;
 }
 
 export function updateUnitLabels() {
@@ -143,6 +153,14 @@ export function updateUnitLabels() {
   });
   const examUnitLabel = $id("examUnitLabel");
   if (examUnitLabel) examUnitLabel.textContent = unit;
+
+  const isNmol = unit === "nmol/L";
+  const examValEl = $id("examValue");
+  if (examValEl) examValEl.max = isNmol ? "1250" : "500";
+  const planCurEl = $id("planCurrentLevel");
+  if (planCurEl) planCurEl.max = isNmol ? "750" : "300";
+  const planTgtEl = $id("planTargetLevel");
+  if (planTgtEl) planTgtEl.max = isNmol ? "500" : "200";
 
   document.querySelectorAll("#unitToggle button").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.unit === unit);
@@ -374,7 +392,7 @@ export function generateTargetPlans() {
     return;
   }
 
-  const calibration = getCurrentCalibration();
+  const calibration = lastSimResult?.calibration || getCurrentCalibration();
   const safeMinWeeks = estimateSafeWeeksRK4(initialLevelNg, targetLevelNg, calibration);
   const mapNote = calibration.calibrated
     ? `<br><small>Protocolo personalizado mediante calibración Bayesiana MAP (${calibration.examCount} examen(es), RMSE ${formatLevel(calibration.rmseNg, 1)}).</small>`
@@ -671,8 +689,10 @@ export function renderProfileSelector() {
 }
 
 let renamingProfileId = null;
+let profileModalCallbacks = { onActivate: null, onRename: null, onDelete: null };
 
 export function renderProfilesModalList(onActivate, onRename, onDelete) {
+  profileModalCallbacks = { onActivate, onRename, onDelete };
   const container = $id("profilesListContainer");
   if (!container) return;
   container.innerHTML = "";
@@ -727,29 +747,33 @@ export function renderProfilesModalList(onActivate, onRename, onDelete) {
     });
   }
 
-  container.querySelectorAll("button[data-action]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+  if (container.dataset.delegated !== "true") {
+    container.dataset.delegated = "true";
+    container.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
       const action = btn.dataset.action;
       const id = btn.dataset.id;
+      const { onActivate: actCb, onRename: renCb, onDelete: delCb } = profileModalCallbacks;
       if (action === "activate") {
         renamingProfileId = null;
-        onActivate(id);
+        actCb?.(id);
       } else if (action === "rename") {
         renamingProfileId = id;
-        renderProfilesModalList(onActivate, onRename, onDelete);
+        renderProfilesModalList(actCb, renCb, delCb);
       } else if (action === "save-rename") {
         const input = btn.closest(".profile-rename-inline")?.querySelector(".profile-rename-input");
         const newName = input?.value.trim() || "";
         renamingProfileId = null;
-        if (newName) onRename(id, newName);
-        else renderProfilesModalList(onActivate, onRename, onDelete);
+        if (newName) renCb?.(id, newName);
+        else renderProfilesModalList(actCb, renCb, delCb);
       } else if (action === "cancel-rename") {
         renamingProfileId = null;
-        renderProfilesModalList(onActivate, onRename, onDelete);
+        renderProfilesModalList(actCb, renCb, delCb);
       } else if (action === "delete") {
         renamingProfileId = null;
-        onDelete(id);
+        delCb?.(id);
       }
     });
-  });
+  }
 }

@@ -350,14 +350,27 @@ export function adjustChartZoom(action, totalWeeks) {
     }
   }
 
-  rerenderChartsFromSnapshot();
+  if (!bloodChart) {
+    rerenderChartsFromSnapshot();
+    return;
+  }
+  [bloodChart, adiposeChart, intakeChart].forEach((chart) => {
+    if (!chart) return;
+    chart.options.scales.x.min = zoomRange.min;
+    chart.options.scales.x.max = zoomRange.max;
+    chart.update("none");
+  });
 }
 
 export function toggleChartLayer(layerKey) {
   if (layerKey in chartLayers) {
     chartLayers[layerKey] = !chartLayers[layerKey];
   }
-  rerenderChartsFromSnapshot();
+  if (layerKey === "zones" && bloodChart) {
+    bloodChart.update("none");
+  } else {
+    rerenderChartsFromSnapshot();
+  }
   return chartLayers[layerKey];
 }
 
@@ -474,7 +487,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
         fill: !chartLayers.band
       },
       {
-        label: "Banda Variabilidad +8%",
+        label: "Banda IC 90% superior",
         data: chartLayers.band ? upperPoints : [],
         borderColor: "transparent",
         backgroundColor: colors.bandFill,
@@ -483,7 +496,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
         tension: 0.24
       },
       {
-        label: "Banda Variabilidad -8%",
+        label: "Banda IC 90% inferior",
         data: chartLayers.band ? lowerPoints : [],
         borderColor: "transparent",
         backgroundColor: "transparent",
@@ -580,7 +593,7 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
                 color: colors.text,
                 boxWidth: 12,
                 font: { size: 11, weight: "600" },
-                filter: (item) => !item.text.includes("Banda Variabilidad")
+                filter: (item) => !item.text.includes("Banda IC 90%")
               }
             },
             tooltip: {
@@ -592,7 +605,8 @@ export function renderCharts(mainTraj, lowerTraj, upperTraj, totalWeeks) {
                   if (raw && raw.note) {
                     return raw.note.includes("•") ? `${raw.note} (Sem ${raw.x})` : `${raw.note} • Sem ${raw.x}${datePart}`;
                   }
-                  return `${ctx.dataset.label}: ${ctx.parsed.y} ${unit} (Sem ${ctx.parsed.x}${datePart})`;
+                  const cleanLabel = ctx.dataset.label.replace(/\s*\([^)]*\)$/, "");
+                  return `${cleanLabel}: ${ctx.parsed.y} ${unit} (Sem ${ctx.parsed.x}${datePart})`;
                 }
               }
             }

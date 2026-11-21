@@ -1,8 +1,8 @@
 /**
- * MÃ³dulo de Estado, Perfiles y Persistencia
+ * Módulo de Estado, Perfiles y Persistencia
  */
 
-export const APP_VERSION = "0.3.14";
+export const APP_VERSION = "0.3.15";
 export const NG_TO_NMOL = 2.496;
 export const STORAGE_KEY_PROFILES = "vitd_sim_v7_profiles";
 export const STORAGE_KEY_THEME = "vitd_sim_v7_theme";

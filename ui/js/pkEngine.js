@@ -531,6 +531,9 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
     loadBuf.push({ day: d, type: doseType, iu: 0, ug: 0, efficiency: 1 });
   }
 
+  const roundStepLoad = isCalci ? 266 : (freq === "daily" ? 100 : 500);
+  const loadTol = roundStepLoad * 0.1;
+
   for (let iter = 0; iter < 24; iter++) {
     const mid = (low + high) / 2;
     const midIU = isCalci ? Math.round(mid * 60) : mid;
@@ -550,6 +553,7 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
       high = mid;
     }
     bestLoad = mid;
+    if (high - low <= loadTol) break;
   }
 
   if (isCalci) {
@@ -599,6 +603,7 @@ export function solveDoseWithRK4(targetNg, baselineNg, loadWeeks, maintWeeks, fr
         mHigh = mMid;
       }
       bestMaintIU = mMid;
+      if (mHigh - mLow <= 10) break;
     }
     bestMaintIU = Math.max(200, Math.round(bestMaintIU / 100) * 100);
 

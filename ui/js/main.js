@@ -11,6 +11,7 @@ import {
   createDefaultProfileState,
   sanitizeState,
   fromDisplayUnit,
+  toDisplayUnit,
   getActiveProfile,
   persistProfilesStore,
   autoSaveCurrentState,
@@ -21,6 +22,7 @@ import {
   showToast,
   switchTab,
   runSimulationAndRender,
+  refreshDisplayFromLastSim,
   renderExamsTable,
   renderAnthroTable,
   renderDosesTable,
@@ -208,10 +210,21 @@ function bindUIEvents() {
     btn.addEventListener("click", () => {
       const nextUnit = btn.dataset.unit;
       if (nextUnit === store.appState.unit) return;
+      const prevUnit = store.appState.unit;
       store.appState.unit = nextUnit;
+
+      ["examValue", "planTargetLevel"].forEach((id) => {
+        const el = $id(id);
+        if (!el) return;
+        const val = parseFloat(el.value);
+        if (Number.isFinite(val) && val > 0) {
+          el.value = toDisplayUnit(fromDisplayUnit(val, prevUnit), nextUnit).toFixed(1);
+        }
+      });
+
       autoSaveCurrentState();
       syncUIWithState();
-      safeRenderAll();
+      if (!refreshDisplayFromLastSim()) safeRenderAll();
     });
   });
 
@@ -296,7 +309,7 @@ function bindUIEvents() {
   $id("startDate")?.addEventListener("change", (e) => {
     store.appState.bodyProfile.startDate = e.target.value;
     autoSaveCurrentState();
-    safeRenderAll();
+    if (!refreshDisplayFromLastSim()) safeRenderAll();
     renderExamsTable();
     renderAnthroTable();
     renderDosesTable();

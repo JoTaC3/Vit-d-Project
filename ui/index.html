@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Vitamina D Simulator v0.3.14</title>
+  <title>Vitamina D Simulator v0.3.15</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="chart.umd.min.js"></script>
 </head>
@@ -19,9 +19,9 @@
       <div class="brand-text">
         <div class="brand-title-row">
           <h1>Vitamina D Simulator</h1>
-          <span class="version-chip">v0.3.14</span>
+          <span class="version-chip">v0.3.15</span>
         </div>
-        <p class="subtitle">TelemetrÃ­a FarmacocinÃ©tica Compartimental â€¢ Colecalciferol D3 &amp; Hidroferol (Calcifediol)</p>
+        <p class="subtitle">Telemetría Farmacocinética Compartimental • Colecalciferol D3 &amp; Hidroferol (Calcifediol)</p>
       </div>
     </div>
 
@@ -75,7 +75,7 @@
     </button>
     <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="ciencia">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 9h4"/><path d="M10 3v6l-4 8a2 2 0 0 0 1.8 3h8.4a2 2 0 0 0 1.8-3l-4-8V3"/></svg>
-      <span>Modelo MatemÃ¡tico</span>
+      <span>Modelo Matemático</span>
     </button>
   </nav>
 
@@ -88,22 +88,22 @@
             <div class="panel-head">
               <span class="step-index">01</span>
               <div>
-                <h2>Perfil FisiolÃ³gico Base</h2>
-                <p class="hint">Modula el volumen de distribuciÃ³n (V<sub>d</sub>) y el secuestro en tejido adiposo.</p>
+                <h2>Perfil Fisiológico Base</h2>
+                <p class="hint">Modula el volumen de distribución (V<sub>d</sub>) y el secuestro en tejido adiposo.</p>
               </div>
-              <span class="panel-chevron" aria-hidden="true">â–¾</span>
+              <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label for="sex">Sexo biolÃ³gico</label>
+                <label for="sex">Sexo biológico</label>
                 <select id="sex">
                   <option value="male">Hombre</option>
                   <option value="female">Mujer</option>
                 </select>
               </div>
               <div class="form-group">
-                <label for="age">Edad (aÃ±os)</label>
+                <label for="age">Edad (años)</label>
                 <input type="number" id="age" value="22" min="15" max="100" inputmode="numeric" />
               </div>
             </div>
@@ -123,7 +123,7 @@
               <div class="form-group">
                 <div class="label-inline">
                   <label for="bodyFat">Grasa corporal (%)</label>
-                  <button type="button" id="estimateBodyFatBtn" class="btn-link-inline" title="Estimar % de grasa corporal con ecuaciÃ³n clÃ­nica CUN-BAE">CUN-BAE</button>
+                  <button type="button" id="estimateBodyFatBtn" class="btn-link-inline" title="Estimar % de grasa corporal con ecuación clínica CUN-BAE">CUN-BAE</button>
                 </div>
                 <input type="number" id="bodyFat" value="32" min="4" max="65" step="0.5" inputmode="decimal" />
               </div>
@@ -134,13 +134,13 @@
             </div>
 
             <div class="form-group">
-              <label for="simWeeks">Horizonte de proyecciÃ³n (semanas)</label>
+              <label for="simWeeks">Horizonte de proyección (semanas)</label>
               <input type="number" id="simWeeks" value="24" min="4" max="104" inputmode="numeric" />
             </div>
 
             <div class="status-strip">
               <span class="pulse-dot"></span>
-              <span>SincronizaciÃ³n local automÃ¡tica por perfil</span>
+              <span>Sincronización local automática por perfil</span>
             </div>
           </div>
 
@@ -148,10 +148,10 @@
             <div class="panel-head">
               <span class="step-index">02</span>
               <div>
-                <h2>ExÃ¡menes de Laboratorio</h2>
-                <p class="hint">En <strong id="examUnitLabel">ng/mL</strong>. Semana 0 fija la condiciÃ³n inicial C<sub>2</sub>(0).</p>
+                <h2>Exámenes de Laboratorio</h2>
+                <p class="hint">En <strong id="examUnitLabel">ng/mL</strong>. Semana 0 fija la condición inicial C<sub>2</sub>(0).</p>
               </div>
-              <span class="panel-chevron" aria-hidden="true">â–¾</span>
+              <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
             <div class="form-row">
@@ -192,10 +192,10 @@
             <div class="panel-head">
               <span class="step-index">03</span>
               <div>
-                <h2>EvoluciÃ³n AntropomÃ©trica</h2>
-                <p class="hint">Interpola dÃ­a a dÃ­a el volumen efectivo V<sub>d</sub>(t) ante cambios de peso y grasa.</p>
+                <h2>Evolución Antropométrica</h2>
+                <p class="hint">Interpola día a día el volumen efectivo V<sub>d</sub>(t) ante cambios de peso y grasa.</p>
               </div>
-              <span class="panel-chevron" aria-hidden="true">â–¾</span>
+              <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
             <div class="form-row-3">
@@ -236,16 +236,16 @@
             <div class="panel-head">
               <span class="step-index">04</span>
               <div>
-                <h2>Esquema de DosificaciÃ³n</h2>
-                <p class="hint">Superpone mÃºltiples tramos de D<sub>3</sub> y Hidroferol (Calcifediol).</p>
+                <h2>Esquema de Dosificación</h2>
+                <p class="hint">Superpone múltiples tramos de D<sub>3</sub> e Hidroferol (Calcifediol).</p>
               </div>
-              <span class="panel-chevron" aria-hidden="true">â–¾</span>
+              <span class="panel-chevron" aria-hidden="true">▾</span>
             </div>
 
             <div class="form-group">
               <label for="doseType">Compuesto activo</label>
               <select id="doseType">
-                <option value="d3">Colecalciferol (Vitamina D3 estÃ¡ndar)</option>
+                <option value="d3">Colecalciferol (Vitamina D3 estándar)</option>
                 <option value="calcifediol">Hidroferol (Calcifediol en microgramos)</option>
               </select>
             </div>
@@ -254,7 +254,7 @@
               <div class="form-group">
                 <label for="doseAmount" id="doseAmountLabel">Dosis por toma (UI)</label>
                 <input type="number" id="doseAmount" value="4000" min="1" max="600000" step="500" inputmode="numeric" />
-                <span class="hint-micro" id="doseHintText">Colecalciferol D3: 1.000 â€“ 50.000 UI por toma</span>
+                <span class="hint-micro" id="doseHintText">Colecalciferol D3: 1.000 – 50.000 UI por toma</span>
               </div>
               <div class="form-group">
                 <label for="doseFreq">Frecuencia</label>
@@ -263,7 +263,7 @@
                   <option value="weekly">Semanal (c/7 d)</option>
                   <option value="biweekly">Quincenal (c/14 d)</option>
                   <option value="monthly">Mensual (c/30 d)</option>
-                  <option value="single">Bolo Ãºnico puntual</option>
+                  <option value="single">Bolo único puntual</option>
                 </select>
               </div>
             </div>
@@ -316,7 +316,7 @@
               <span class="telemetry-sub" id="kpiStartStatus">Basal</span>
             </div>
             <div class="telemetry-card" id="kpiPeakCard">
-              <span class="telemetry-label">PICO MÃXIMO PROYECTADO</span>
+              <span class="telemetry-label">PICO MÁXIMO PROYECTADO</span>
               <span class="telemetry-val" id="kpiPeak">--</span>
               <span class="telemetry-sub" id="kpiPeakWeek">--</span>
             </div>
@@ -333,18 +333,18 @@
           </div>
 
           <div id="safetyBanner" class="status-banner info" role="status">
-            Cargando telemetrÃ­a farmacocinÃ©tica...
+            Cargando telemetría farmacocinética...
           </div>
 
           <!-- PRIMARY INTERACTIVE CHART DECK -->
           <div class="panel-card chart-deck">
             <div class="chart-deck-header">
               <div>
-                <h2>Trayectoria SÃ©rica 25(OH)D3 y CalibraciÃ³n</h2>
+                <h2>Trayectoria Sérica 25(OH)D3 y Calibración</h2>
                 <p class="hint">Toca o desliza sobre la curva para inspeccionar concentraciones exactas, reservas y eventos de dosis.</p>
               </div>
               <div class="snapshot-bar">
-                <input type="text" id="simTitleInput" placeholder="Nombre (ej. Protocolo Diciembre)" aria-label="Nombre de simulaciÃ³n" />
+                <input type="text" id="simTitleInput" placeholder="Nombre (ej. Protocolo Diciembre)" aria-label="Nombre de simulación" />
                 <button type="button" id="saveSimBtn" class="btn-helio btn-sm">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
                   <span>Guardar Memoria</span>
@@ -354,15 +354,15 @@
 
             <!-- INTERACTIVE CHART TOOLBAR -->
             <div class="chart-toolbar">
-              <div class="layer-toggles" role="group" aria-label="Capas del grÃ¡fico">
-                <button type="button" id="toggleZonesBtn" class="layer-chip active" aria-pressed="true">Zonas ClÃ­nicas</button>
-                <button type="button" id="toggleBandBtn" class="layer-chip active" aria-pressed="true">Banda Â±8%</button>
+              <div class="layer-toggles" role="group" aria-label="Capas del gráfico">
+                <button type="button" id="toggleZonesBtn" class="layer-chip active" aria-pressed="true">Zonas Clínicas</button>
+                <button type="button" id="toggleBandBtn" class="layer-chip active" aria-pressed="true">Banda IC 90%</button>
                 <button type="button" id="toggleDosesBtn" class="layer-chip active" aria-pressed="true">Tomas Dosis</button>
               </div>
 
               <div class="zoom-controls" role="group" aria-label="Control de escala temporal">
                 <button type="button" id="zoomInBtn" class="btn-instrument btn-xs" title="Acercar ventana temporal">+ Zoom</button>
-                <button type="button" id="zoomOutBtn" class="btn-instrument btn-xs" title="Alejar ventana temporal">âˆ’ Zoom</button>
+                <button type="button" id="zoomOutBtn" class="btn-instrument btn-xs" title="Alejar ventana temporal">− Zoom</button>
                 <button type="button" id="resetZoomBtn" class="btn-instrument btn-xs" title="Ver horizonte completo">100%</button>
               </div>
             </div>
@@ -373,7 +373,7 @@
                 <span class="inspector-badge" id="scrubberWeekLabel">SEM 0.0</span>
                 <div class="inspector-metrics" id="scrubberReadout">
                   <div class="inspector-cell">
-                    <span class="inspector-cell-lbl">25(OH)D [mÃ­nâ€“mÃ¡x]</span>
+                    <span class="inspector-cell-lbl">25(OH)D [mín–máx]</span>
                     <span class="inspector-cell-val" id="scrubberConcVal">--</span>
                   </div>
                   <div class="inspector-cell">
@@ -386,7 +386,7 @@
                   </div>
                 </div>
               </div>
-              <input type="range" id="chartScrubber" class="week-scrubber" min="0" max="24" step="0.25" value="0" aria-label="Explorar semana en el grÃ¡fico" />
+              <input type="range" id="chartScrubber" class="week-scrubber" min="0" max="24" step="0.25" value="0" aria-label="Explorar semana en el gráfico" />
             </div>
 
             <div class="chart-container-lg">
@@ -400,7 +400,7 @@
                 <h3>Compartimento Adiposo vs. D3 Libre</h3>
                 <span class="mono-tag">kUI</span>
               </div>
-              <p class="hint">Secuestro lipofÃ­lico A<sub>adip</sub>(t) y pool circulante A<sub>1</sub>(t) sincronizados con el cursor.</p>
+              <p class="hint">Secuestro lipofílico A<sub>adip</sub>(t) y pool circulante A<sub>1</sub>(t) sincronizados con el cursor.</p>
               <div class="chart-container-sm">
                 <canvas id="adiposeChart"></canvas>
               </div>
@@ -409,9 +409,9 @@
             <div class="panel-card chart-deck">
               <div class="subchart-head">
                 <h3>Aporte Equivalente Biodisponible</h3>
-                <span class="mono-tag">UI / dÃ­a</span>
+                <span class="mono-tag">UI / día</span>
               </div>
-              <p class="hint">Aporte exÃ³geno diario ajustado por biodisponibilidad y frecuencia de administraciÃ³n.</p>
+              <p class="hint">Aporte exógeno diario ajustado por biodisponibilidad y frecuencia de administración.</p>
               <div class="chart-container-sm">
                 <canvas id="intakeChart"></canvas>
               </div>
@@ -429,7 +429,7 @@
             <span class="step-index">RK4</span>
             <div>
               <h2>Planificador Inverso de Objetivo</h2>
-              <p class="hint">Resuelve por bÃºsqueda binaria acoplada a ODE los esquemas de carga y mantenciÃ³n.</p>
+              <p class="hint">Resuelve por búsqueda binaria acoplada a ODE los esquemas de carga y mantención.</p>
             </div>
           </div>
 
@@ -450,7 +450,7 @@
               <input type="number" id="planWeeks" value="12" min="2" max="52" step="1" inputmode="numeric" />
             </div>
             <div class="form-group">
-              <label for="planMaintWeeks">MantenciÃ³n posterior (sem)</label>
+              <label for="planMaintWeeks">Mantención posterior (sem)</label>
               <input type="number" id="planMaintWeeks" value="12" min="0" max="52" step="1" inputmode="numeric" />
             </div>
           </div>
@@ -461,7 +461,7 @@
           </button>
 
           <div id="plannerAlertBox" class="status-banner info mt-12">
-            Define tu meta sÃ©rica y ejecuta el solucionador inverso.
+            Define tu meta sérica y ejecuta el solucionador inverso.
           </div>
         </div>
 
@@ -475,7 +475,7 @@
         <div class="chart-deck-header">
           <div>
             <h2>Memorias y Respaldo de Perfiles</h2>
-            <p class="hint">InstantÃ¡neas almacenadas localmente en el perfil activo. Exporta o restaura en formato JSON.</p>
+            <p class="hint">Instantáneas almacenadas localmente en el perfil activo. Exporta o restaura en formato JSON.</p>
           </div>
           <div class="memory-toolbar">
             <button type="button" id="exportMemoriesBtn" class="btn-instrument">
@@ -494,39 +494,67 @@
       </div>
     </section>
 
-    <!-- TAB 4: MODELO MATEMÃTICO -->
+    <!-- TAB 4: MODELO MATEMÁTICO -->
     <section id="tab-ciencia" class="tab-content" role="tabpanel">
       <div class="panel-card science-card">
-        <h2>Arquitectura FarmacocinÃ©tica PopPK (V7)</h2>
-        <p class="science-lead">IntegraciÃ³n numÃ©rica mediante <strong>Runge-Kutta de 4.Âº orden (RK4)</strong> con paso Î”t = 0,25 dÃ­as (6 horas) sobre cuatro variables de estado acopladas (<code>gut<sub>D3</sub></code>, <code>gut<sub>25D</sub></code>, <code>pool<sub>D3</sub></code>, <code>pool<sub>25D</sub></code>) y calibraciÃ³n Bayesiana MAP:</p>
+        <h2>Modelo Matemático PopPK (V7)</h2>
+        <p class="science-lead">Simulación fisiológica integrada con el método numérico <strong>Runge-Kutta de 4.º orden (RK4)</strong> paso a paso cada 6 horas (Δt = 0,25 días). Modela el recorrido intestinal, hepático, sanguíneo y adiposo de la vitamina D, ajustándose con tus exámenes reales mediante inferencia Bayesiana MAP.</p>
 
         <div class="science-grid">
           <div class="science-box">
-            <span class="mono-tag">ALOMETRÃA, CUN-BAE Y LIPÃ“LISIS</span>
-            <h3>VolÃºmenes (V<sub>rel</sub>) y MovilizaciÃ³n Adiposa</h3>
-            <p>Escalamiento alomÃ©trico desde adulto estÃ¡ndar (FFM<sub>ref</sub> = 56 kg, FM<sub>ref</sub> = 14 kg), estimaciÃ³n clÃ­nica CUN-BAE y liberaciÃ³n lipolÃ­tica proporcional a la pÃ©rdida de masa grasa (Î³<sub>lip</sub> = 0,45 ng/mLÂ·kg<sup>âˆ’1</sup>):</p>
-            <code>v_rel,D3 = max(0,55, 0,40Â·(FFM/56)^0,75 + 0,60Â·(FM/14))<br>J_lip = Î³_lip Â· (âˆ’dFM/dt)+ Â· (C / 25) Â· v_rel,D3</code>
+            <span class="mono-tag">1. SISTEMA ODE DE 4 ESTADOS (RK4)</span>
+            <h3>Cómo viaja y se transforma la dosis</h3>
+            <p>Cada toma entra primero al intestino (<code>gut</code>) y pasa progresivamente a la circulación y tejidos (<code>pool</code>). Se separan colecalciferol (D<sub>3</sub>) y calcifediol (25D) porque tienen velocidades muy distintas; al sumarse sobre el nivel basal reflejan la 25(OH)D total en sangre.</p>
+            <code>d(gut<sub>D3</sub>)/dt = −k<sub>a,D3</sub> · gut<sub>D3</sub> &nbsp;(k<sub>a,D3</sub> = 0,28 d<sup>−1</sup>)<br>d(gut<sub>25D</sub>)/dt = −k<sub>a,25D</sub> · gut<sub>25D</sub> &nbsp;(k<sub>a,25D</sub> = 1,40 d<sup>−1</sup>)<br>d(pool<sub>D3</sub>)/dt = k<sub>a,D3</sub>·gut<sub>D3</sub> + J<sub>lip</sub> − k<sub>e,D3</sub>(C)·pool<sub>D3</sub><br>d(pool<sub>25D</sub>)/dt = k<sub>a,25D</sub>·gut<sub>25D</sub> − k<sub>e,25D</sub>(C)·pool<sub>25D</sub><br>C(t) = max(1, C<sub>base</sub> + pool<sub>D3</sub>/v<sub>rel,D3</sub> + pool<sub>25D</sub>/v<sub>rel,25D</sub>)</code>
           </div>
 
           <div class="science-box">
-            <span class="mono-tag">D<sub>3</sub> ORAL Y REPRESIÃ“N CYP2R1</span>
-            <h3>SaturaciÃ³n de Hill y ConversiÃ³n HepÃ¡tica</h3>
-            <p>Entrada intestinal de colecalciferol (D<sub>50</sub> = 180.000 UI, n = 0,85, k<sub>a</sub> = 0,28 d<sup>âˆ’1</sup>) modulada por represiÃ³n hepÃ¡tica CYP2R1 en obesidad (Î² = 0,16):</p>
-            <code>Î·_D3(UI) = 1 / (1 + (UI / 180.000)^0,85)<br>f_CYP2R1 = 1 / (1 + 0,16 Â· max(0, FM/14 âˆ’ 1))</code>
+            <span class="mono-tag">2. ALOMETRÍA CORPORAL Y CUN-BAE</span>
+            <h3>Por qué el peso y la grasa cambian la dosis</h3>
+            <p>La vitamina D<sub>3</sub> es muy lipofílica y se diluye en el tejido adiposo, mientras que el calcifediol es más hidrosoluble y responde sobre todo a la masa magra (FFM). Si no conoces tu % de grasa, el botón <strong>CUN-BAE</strong> lo estima desde edad, sexo e IMC (Gómez-Ambrosi 2012).</p>
+            <code>FM = peso · (%GC / 100), &nbsp;FFM = max(25, peso − FM)<br>v<sub>rel,D3</sub> = max(0,55, 0,40·(FFM/56)<sup>0,75</sup> + 0,60·(FM/14))<br>v<sub>rel,25D</sub> = max(0,65, 0,78·(FFM/56)<sup>0,75</sup> + 0,22·(FM/14))<br>V<sub>d,D3</sub> = 13,8 · v<sub>rel,D3</sub> [L]<br>%GC = −44,988 + 0,503·edad + 10,689·S + 3,172·IMC − 0,026·IMC<sup>2</sup> + 0,00018·IMC<sup>2</sup>·edad − 0,020·IMC·edad − 0,005·IMC<sup>2</sup>·S</code>
           </div>
 
           <div class="science-box">
-            <span class="mono-tag">CINÃ‰TICA DIFERENCIADA Y CYP24A1</span>
-            <h3>Calcifediol (15 d) vs. D<sub>3</sub> (28 d)</h3>
-            <p>Hidroferol 25(OH)D<sub>3</sub> elude CYP2R1 (k<sub>a</sub> = 1,40 d<sup>âˆ’1</sup>, t<sub>1/2</sub> = 15,0 d) frente al pool de D<sub>3</sub> (t<sub>1/2</sub> = 28,0 d), con inducciÃ³n catabÃ³lica CYP24A1 sobre 30 ng/mL (E<sub>max</sub> = 0,35):</p>
-            <code>Ï†_CYP24(C) = 1 + 0,35Â·(C âˆ’ 30)+ / (50 + (C âˆ’ 30)+)<br>k_e,D3 = (ln 2 / 28)Â·Ï†, k_e,25D = (ln 2 / 15)Â·Ï†</code>
+            <span class="mono-tag">3. SATURACIÓN DE HILL Y CYP2R1</span>
+            <h3>Por qué megadosis rinden proporcionalmente menos</h3>
+            <p>El intestino y la enzima hepática CYP2R1 se saturan ante bolos gigantes: dos dosis diarias moderadas aprovechan mejor la ruta que un bolo masivo. Además, el exceso adiposo reprime parcialmente la conversión hepática de D<sub>3</sub> (β = 0,16), efecto que el calcifediol evita al llegar ya hidroxilado.</p>
+            <code>η<sub>D3</sub>(UI) = 1 / (1 + (UI / 180.000)<sup>0,85</sup>)<br>η<sub>25D</sub>(mg) = 1 / (1 + (mg / 2,50)<sup>0,85</sup>)<br>f<sub>CYP2R1</sub> = 1 / (1 + 0,16 · max(0, FM/14 − 1))<br>Δgut<sub>D3</sub> = UI · η<sub>D3</sub> · 0,00041 · f<sub>CYP2R1</sub> · exp(η<sub>gain</sub>)<br>Δgut<sub>25D</sub> = µg · η<sub>25D</sub> · 0,068 · exp(0,5·η<sub>gain</sub>)</code>
           </div>
 
           <div class="science-box">
-            <span class="mono-tag">CALIBRACIÃ“N BAYESIANA MAP E IC 90%</span>
-            <h3>IndividualizaciÃ³n Longitudinal (MIPD)</h3>
-            <p>Ajuste mÃ¡ximo a posteriori de ganancia (Î·<sub>gain</sub>, Ï‰ = 0,28) y aclaramiento (Î·<sub>ke</sub>, Ï‰ = 0,25) sobre exÃ¡menes â‰¥ 0,5 sem con error residual mixto y contracciÃ³n de varianza IC 90%:</p>
-            <code>Ïƒ_MAP = Ï‰ / âˆš(1 + 0,85 Â· N_exÃ¡menes)<br>IC 90%: C_base Â± 1,645Â·Ïƒ_RUV, Î· Â± (1,645/âˆš2)Â·Ïƒ_MAP</code>
+            <span class="mono-tag">4. ACLARAMIENTO DIFERENCIADO Y CYP24A1</span>
+            <h3>Velocidad de bajada y freno fisiológico</h3>
+            <p>La D<sub>3</sub> almacenada permanece mucho más tiempo (semivida 28 días) que el calcifediol (15 días). Cuando la sangre supera los 30 ng/mL (75 nmol/L), el organismo induce la enzima catabólica CYP24A1 para acelerar la depuración y amortiguar subidas excesivas.</p>
+            <code>t<sub>1/2,D3</sub> = 28,0 d, &nbsp;t<sub>1/2,25D</sub> = 15,0 d<br>φ<sub>CYP24</sub>(C) = 1 + 0,35·max(0, C−30) / (50 + max(0, C−30))<br>k<sub>e,D3</sub>(C) = (ln 2 / 28,0) · φ<sub>CYP24</sub>(C) · exp(η<sub>ke</sub>)<br>k<sub>e,25D</sub>(C) = (ln 2 / 15,0) · φ<sub>CYP24</sub>(C) · exp(η<sub>ke</sub>)</code>
+          </div>
+
+          <div class="science-box">
+            <span class="mono-tag">5. MOVILIZACIÓN LIPOLÍTICA Y RESERVA</span>
+            <h3>Liberación al perder grasa corporal</h3>
+            <p>Al registrar pérdida de peso y grasa en el control antropométrico, parte de la vitamina D secuestrada en los adipocitos regresa gradualmente a la sangre (γ<sub>lip</sub> = 0,45 ng/mL por kg de grasa perdido). El gráfico secundario separa esa reserva lipofílica del pool circulante.</p>
+            <code>J<sub>lip</sub>(t) = 0,45 · max(0, −dFM/dt) · (C(t) / 25) · v<sub>rel,D3</sub>(t)<br>f<sub>adip</sub> = clamp((0,60 · FM/14) / v<sub>rel,D3</sub>, 0, 1)</code>
+          </div>
+
+          <div class="science-box">
+            <span class="mono-tag">6. CALIBRACIÓN BAYESIANA MAP (MIPD)</span>
+            <h3>Cómo aprende el modelo de tus análisis</h3>
+            <p>Cada examen posterior a la semana 0,5 permite estimar tu respuesta individual en absorción/conversión (η<sub>gain</sub>) y velocidad de eliminación (η<sub>ke</sub>), equilibrando tus datos reales frente a la variabilidad poblacional esperada (ω) y al margen de error del laboratorio (RUV).</p>
+            <code>σ<sub>RUV,i</sub><sup>2</sup> = 1,5<sup>2</sup> + (0,08 · C<sub>pred</sub>(t<sub>i</sub>))<sup>2</sup><br>L(η<sub>gain</sub>, η<sub>ke</sub>) = (η<sub>gain</sub>/0,28)<sup>2</sup> + (η<sub>ke</sub>/0,25)<sup>2</sup> + Σ[(C<sub>pred,i</sub>−y<sub>i</sub>)<sup>2</sup>/σ<sub>RUV,i</sub><sup>2</sup> + ln σ<sub>RUV,i</sub><sup>2</sup>]<br>η<sub>gain</sub>, η<sub>ke</sub> ∈ [−0,75, +0,75]</code>
+          </div>
+
+          <div class="science-box">
+            <span class="mono-tag">7. BANDA IC 90% Y PLANIFICADOR INVERSO</span>
+            <h3>Incertidumbre estadística y cálculo de meta</h3>
+            <p>La franja sombreada representa el intervalo de predicción del 90% (z = 1,645): es amplia al inicio y se estrecha conforme agregas análisis de control. El Planificador Inverso invierte todo el modelo RK4 mediante búsqueda binaria para hallar carga y mantención exactas hacia tu meta.</p>
+            <code>σ<sub>MAP</sub> = ω / √(1 + 0,85 · N<sub>exámenes</sub>)<br>C<sub>base,IC</sub> = C<sub>base</sub> ± 1,645·√(1,5<sup>2</sup> + (0,06·C<sub>base</sub>)<sup>2</sup>)<br>η<sub>IC</sub> = η ± (1,645 / √2)·σ<sub>MAP</sub></code>
+          </div>
+
+          <div class="science-box">
+            <span class="mono-tag">8. UNIDADES Y REFERENCIA CLÍNICA</span>
+            <h3>Equivalencias exactas de la plataforma</h3>
+            <p>Internamente el motor opera en ng/mL y convierte automáticamente toda la interfaz, gráficos y umbrales al seleccionar nmol/L. En Hidroferol cada cápsula estándar aporta 266 µg (0,266 mg), con eficacia sérica superior por vía directa.</p>
+            <code>1 ng/mL = 2,496 nmol/L &nbsp;•&nbsp; 1 µg D<sub>3</sub> = 40 UI &nbsp;•&nbsp; 1 kUI = 1.000 UI<br>1 cáp. Hidroferol = 266 µg = 0,266 mg (~16.000 UI eq.)<br>Deficiencia &lt; 20 ng/mL (&lt; 50 nmol/L) • Insuf. 20–30 (50–75)<br>Óptimo 30–60 ng/mL (75–150 nmol/L) • Sup. 60–100 (150–250) • Tox. &gt; 100 (&gt; 250)</code>
           </div>
         </div>
       </div>
@@ -540,7 +568,7 @@
         <h3 id="profileModalTitle">Gestor de Perfiles de Usuario</h3>
         <button type="button" id="closeProfileModalBtn" class="btn-icon" aria-label="Cerrar ventana">&times;</button>
       </div>
-      <p class="hint">Cada perfil aÃ­sla su propio historial de laboratorio, antropometrÃ­a, dosis y simulaciones guardadas.</p>
+      <p class="hint">Cada perfil aísla su propio historial de laboratorio, antropometría, dosis y simulaciones guardadas.</p>
 
       <div class="profile-create-box">
         <input type="text" id="newProfileNameInput" placeholder="Nombre del perfil (ej. Juan Carlos, Control 2026)" />
