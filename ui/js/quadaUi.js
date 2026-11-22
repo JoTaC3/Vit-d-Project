@@ -5,11 +5,31 @@ import {
   QUADA_LEVELS,
   loadQuadaState,
   saveQuadaState,
-  computeQuadaPlan
+  computeQuadaPlan,
+  formatQuadaPlainText
 } from "./quadaEngine.js";
 
 let initialized = false;
 let quadaState = null;
+
+function copyTextWithFallback(text) {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  }
+  return Promise.resolve(fallbackCopy(text));
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  document.body.removeChild(ta);
+}
 
 export function initQuadaModule() {
   const root = document.getElementById("quadaRoot");
@@ -38,9 +58,26 @@ export function initQuadaModule() {
         </label>
       </div>
 
+      <div class="quada-cfg-block">
+        <div class="quada-cfg-label"><span>04 · Referencia Corporal (kg)</span></div>
+        <div class="quada-ref-row">
+          <label class="quada-ref-field">
+            <span>Peso corporal (kg)</span>
+            <input type="number" id="quadaBodyWeightInput" min="35" max="250" step="0.5" inputmode="decimal" />
+          </label>
+          <label class="quada-ref-field">
+            <span>Sexo</span>
+            <select id="quadaSexSelect">
+              <option value="male">Hombre</option>
+              <option value="female">Mujer</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
       <div class="quada-cfg-block quada-cfg-full">
         <div class="quada-cfg-label">
-          <span>04 · Foco muscular prioritario (hasta 3 entre 10)</span>
+          <span>05 · Foco muscular prioritario (hasta 3 entre 10)</span>
           <span id="quadaFocusCount"></span>
         </div>
         <div class="quada-focus-grid" id="quadaFocusGrid"></div>
@@ -65,14 +102,14 @@ export function initQuadaModule() {
           <span class="telemetry-sub" id="quadaKpiPuosSub">--</span>
         </div>
         <div class="telemetry-card">
-          <span class="telemetry-label">FOCO MECÁNICO</span>
-          <span class="telemetry-val" id="quadaKpiSpec">--</span>
-          <span class="telemetry-sub">Estiramiento + cabezas biarticulares</span>
+          <span class="telemetry-label">TONELAJE SEMANAL EST.</span>
+          <span class="telemetry-val" id="quadaKpiLoad">--</span>
+          <span class="telemetry-sub" id="quadaKpiSpec">--</span>
         </div>
       </div>
     </section>
 
-    <section class="panel-card">
+    <section class="panel-card quada-vol-section">
       <div class="quada-panel-head">
         <h2>Medidor de Volumen Fraccional Semanal</h2>
         <div class="quada-legend-row">
@@ -85,10 +122,17 @@ export function initQuadaModule() {
       <div class="quada-vol-grid" id="quadaVolGrid"></div>
     </section>
 
-    <section class="panel-card">
+    <section class="panel-card quada-print-sheet">
       <div class="quada-panel-head">
-        <h2>Planificador Semanal Día por Día</h2>
-        <span class="hint" id="quadaPlanSummarySub">--</span>
+        <div>
+          <h2>Planificador Semanal Día por Día</h2>
+          <span class="hint" id="quadaPlanSummarySub">--</span>
+        </div>
+        <div class="quada-export-actions">
+          <button type="button" id="quadaCopyTxtBtn" class="btn-instrument btn-sm">Copiar rutina</button>
+          <button type="button" id="quadaDownloadTxtBtn" class="btn-instrument btn-sm">Descargar .txt</button>
+          <button type="button" id="quadaPrintBtn" class="btn-helio btn-sm">Imprimir / PDF</button>
+        </div>
       </div>
       <div class="quada-days-grid" id="quadaDaysGrid"></div>
     </section>
@@ -162,6 +206,52 @@ export function initQuadaModule() {
     renderQuada();
   });
 
+  const bwInput = document.getElementById("quadaBodyWeightInput");
+  bwInput.value = String(quadaState.bodyWeightKg);
+  bwInput.addEventListener("change", () => {
+    const val = parseFloat(bwInput.value);
+    quadaState.bodyWeightKg = Number.isFinite(val) ? Math.max(35, Math.min(250, Math.round(val * 2) / 2)) : 75;
+    bwInput.value = String(quadaState.bodyWeightKg);
+    saveQuadaState(quadaState);
+    renderQuada();
+  });
+
+  const sexSelect = document.getElementById("quadaSexSelect");
+  sexSelect.value = quadaState.sex;
+  sexSelect.addEventListener("change", () => {
+    quadaState.sex = sexSelect.value === "female" ? "female" : "male";
+    saveQuadaState(quadaState);
+    renderQuada();
+  });
+
+  const copyBtn = document.getElementById("quadaCopyTxtBtn");
+  copyBtn.addEventListener("click", async () => {
+    const plan = computeQuadaPlan(quadaState);
+    const txt = formatQuadaPlainText(quadaState, plan);
+    await copyTextWithFallback(txt);
+    const prev = copyBtn.textContent;
+    copyBtn.textContent = "¡Copiado!";
+    setTimeout(() => { copyBtn.textContent = prev; }, 1800);
+  });
+
+  document.getElementById("quadaDownloadTxtBtn").addEventListener("click", () => {
+    const plan = computeQuadaPlan(quadaState);
+    const txt = formatQuadaPlainText(quadaState, plan);
+    const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `quada_rutina_${quadaState.days}d.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  document.getElementById("quadaPrintBtn").addEventListener("click", () => {
+    window.print();
+  });
+
   renderQuada();
 }
 
@@ -180,9 +270,10 @@ function renderQuada() {
   document.getElementById("quadaKpiTimeSub").textContent = quadaState.supersets ? "Superseries activas (-36%)" : "Series tradicionales";
   document.getElementById("quadaKpiPuos").textContent = `${plan.maxSessionDirect} / 11`;
   document.getElementById("quadaKpiPuosSub").textContent = plan.maxSessionDirect <= 11 ? "Dentro del techo PUOS" : "Excede techo PUOS";
-  document.getElementById("quadaKpiSpec").textContent = quadaState.focus.length ? quadaState.focus.join(" · ") : "Equilibrado";
+  document.getElementById("quadaKpiLoad").textContent = `${Math.round(plan.totalVolumeKg).toLocaleString("es-CL")} kg`;
+  document.getElementById("quadaKpiSpec").textContent = quadaState.focus.length ? `Foco: ${quadaState.focus.join(" · ")}` : "Foco equilibrado";
   const envLabel = QUADA_ENVS.find((e) => e.id === quadaState.env)?.label || "";
-  document.getElementById("quadaPlanSummarySub").textContent = `${QUADA_SPLIT_LABELS[quadaState.days]} · ${envLabel}`;
+  document.getElementById("quadaPlanSummarySub").textContent = `${QUADA_SPLIT_LABELS[quadaState.days]} · ${envLabel} · Ref. ${quadaState.bodyWeightKg} kg`;
 
   const volGrid = document.getElementById("quadaVolGrid");
   volGrid.innerHTML = "";
@@ -211,8 +302,27 @@ function renderQuada() {
   plan.daysOut.forEach((d) => {
     const card = document.createElement("article");
     card.className = "quada-day-card";
-    const trs = d.rows.map((r) => `
-      <tr>
+
+    const head = document.createElement("div");
+    head.className = "quada-day-head";
+    head.innerHTML = `
+      <h3>${d.title}</h3>
+      <span class="quada-day-meta">${d.daySets} series · ~${d.mins} min · ${Math.round(d.dayVolumeKg).toLocaleString("es-CL")} kg</span>
+    `;
+    card.appendChild(head);
+
+    const table = document.createElement("table");
+    table.className = "quada-ex-table";
+    table.innerHTML = `
+      <thead>
+        <tr><th>Ejercicio</th><th>Ser×Rep</th><th>RIR</th><th>Desc</th><th>Tempo</th><th>Carga (kg)</th></tr>
+      </thead>
+    `;
+    const tbody = document.createElement("tbody");
+
+    d.rows.forEach((r) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
         <td>
           <span class="quada-ex-name">${r.ssTag ? `<span class="quada-ss-badge">SS ${r.ssTag}</span>` : ""}${r.exName}</span>
           <span class="quada-ex-note">${r.muscle}${r.isFocus ? " (Foco)" : ""} · ${r.note}</span>
@@ -221,20 +331,77 @@ function renderQuada() {
         <td class="quada-mono">${r.rir}</td>
         <td class="quada-mono">${r.restSec}s</td>
         <td class="quada-mono">${r.tempo}</td>
-      </tr>
-    `).join("");
-    card.innerHTML = `
-      <div class="quada-day-head">
-        <h3>${d.title}</h3>
-        <span class="quada-day-meta">${d.daySets} series · ~${d.mins} min</span>
-      </div>
-      <table class="quada-ex-table">
-        <thead>
-          <tr><th>Ejercicio</th><th>Ser×Rep</th><th>RIR</th><th>Desc</th><th>Tempo</th></tr>
-        </thead>
-        <tbody>${trs}</tbody>
-      </table>
-    `;
+      `;
+
+      const loadTd = document.createElement("td");
+      loadTd.className = "quada-load-cell";
+      const wrap = document.createElement("div");
+      wrap.className = "quada-series-wrap";
+
+      r.seriesKg.forEach((kg, sIdx) => {
+        const chip = document.createElement("label");
+        chip.className = `quada-set-chip ${r.isCustom ? "is-custom" : "is-est"}`;
+        chip.title = r.isBodyweight
+          ? `Serie ${sIdx + 1}: lastre extra en kg (0 = peso corporal)`
+          : `Serie ${sIdx + 1} (${r.isCustom ? "fijado" : "est."})`;
+
+        const tag = document.createElement("span");
+        tag.textContent = `S${sIdx + 1}`;
+        const inp = document.createElement("input");
+        inp.type = "number";
+        inp.min = "0";
+        inp.max = "500";
+        inp.step = "0.5";
+        inp.inputMode = "decimal";
+        inp.value = String(kg);
+        inp.setAttribute("aria-label", `${r.exName} serie ${sIdx + 1} kg`);
+        inp.addEventListener("change", () => {
+          const val = parseFloat(inp.value);
+          const clean = Number.isFinite(val) && val >= 0 ? Math.min(500, val) : r.estimatedSets[sIdx];
+          const baseArr = Array.isArray(quadaState.customWeights[r.rowKey])
+            ? [...quadaState.customWeights[r.rowKey]]
+            : [...r.estimatedSets];
+          while (baseArr.length < r.sets) baseArr.push(r.estimatedSets[baseArr.length] ?? 0);
+          baseArr[sIdx] = clean;
+          quadaState.customWeights[r.rowKey] = baseArr;
+          saveQuadaState(quadaState);
+          renderQuada();
+        });
+
+        chip.appendChild(tag);
+        chip.appendChild(inp);
+        wrap.appendChild(chip);
+      });
+
+      const metaRow = document.createElement("div");
+      metaRow.className = "quada-load-meta";
+      const badge = document.createElement("span");
+      badge.className = `quada-load-tag ${r.isCustom ? "is-custom" : "is-est"}`;
+      badge.textContent = r.isBodyweight ? (r.isCustom ? "fijado (+kg)" : "corp. (+kg)") : (r.isCustom ? "fijado" : "est.");
+      metaRow.appendChild(badge);
+
+      if (r.isCustom) {
+        const resetBtn = document.createElement("button");
+        resetBtn.type = "button";
+        resetBtn.className = "quada-reset-btn";
+        resetBtn.title = "Restaurar estimación automática";
+        resetBtn.textContent = "↺";
+        resetBtn.addEventListener("click", () => {
+          delete quadaState.customWeights[r.rowKey];
+          saveQuadaState(quadaState);
+          renderQuada();
+        });
+        metaRow.appendChild(resetBtn);
+      }
+
+      loadTd.appendChild(wrap);
+      loadTd.appendChild(metaRow);
+      tr.appendChild(loadTd);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    card.appendChild(table);
     daysGrid.appendChild(card);
   });
 }

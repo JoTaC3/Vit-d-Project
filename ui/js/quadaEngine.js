@@ -21,9 +21,9 @@ export const QUADA_ENVS = [
 ];
 
 export const QUADA_LEVELS = [
-  { id: "novice", label: "Novato", mult: 0.78 },
-  { id: "inter", label: "Intermedio", mult: 1.0 },
-  { id: "adv", label: "Avanzado", mult: 1.22 }
+  { id: "novice", label: "Novato", mult: 0.78, loadMult: 0.65 },
+  { id: "inter", label: "Intermedio", mult: 1.0, loadMult: 1.0 },
+  { id: "adv", label: "Avanzado", mult: 1.22, loadMult: 1.35 }
 ];
 
 export const QUADA_EXERCISES = {
@@ -188,13 +188,92 @@ const SPLIT_TEMPLATES = {
   ]
 };
 
+const LOAD_PROFILES = {
+  "Prensa inclinada / Hack Squat": { bwMult: 1.35, step: 2.5, isBodyweight: false },
+  "Hip Thrust en máquina / barra": { bwMult: 1.20, step: 2.5, isBodyweight: false },
+  "Peso muerto rumano con barra/mancuernas": { bwMult: 1.05, step: 2.5, isBodyweight: false },
+  "Elevación de gemelos de pie en máquina": { bwMult: 0.90, step: 2.5, isBodyweight: false },
+  "Jalón al pecho agarre neutro": { bwMult: 0.68, step: 2.5, isBodyweight: false },
+  "Remo apoyado en pecho (máquina)": { bwMult: 0.65, step: 2.5, isBodyweight: false },
+  "Extensión de cuádriceps en máquina": { bwMult: 0.65, step: 2.5, isBodyweight: false },
+  "Press inclinado con mancuernas": { bwMult: 0.56, step: 2, isBodyweight: false },
+  "Curl femoral sentado": { bwMult: 0.55, step: 2.5, isBodyweight: false },
+  "Crunch en polea alta de rodillas": { bwMult: 0.45, step: 2.5, isBodyweight: false },
+  "Extensión de tríceps sobre cabeza en polea": { bwMult: 0.28, step: 2.5, isBodyweight: false },
+  "Cruces en polea baja-alta": { bwMult: 0.26, step: 2.5, isBodyweight: false },
+  "Pájaros en máquina pec-deck": { bwMult: 0.26, step: 2.5, isBodyweight: false },
+  "Curl inclinado en banco 45°": { bwMult: 0.24, step: 1, isBodyweight: false },
+  "Elevaciones laterales en polea": { bwMult: 0.11, step: 1, isBodyweight: false },
+
+  "Peso muerto rumano con mancuernas": { bwMult: 0.62, step: 1, isBodyweight: false },
+  "Sentadilla búlgara con mancuernas": { bwMult: 0.52, step: 1, isBodyweight: false },
+  "Press inclinado c/ mancuernas en banco": { bwMult: 0.50, step: 1, isBodyweight: false },
+  "Hip Thrust con mancuerna en banco": { bwMult: 0.50, step: 1, isBodyweight: false },
+  "Press militar con mancuernas": { bwMult: 0.42, step: 1, isBodyweight: false },
+  "Remo a una mano con mancuerna": { bwMult: 0.36, step: 1, isBodyweight: false },
+  "Gemelos de pie unilateral con mancuerna": { bwMult: 0.30, step: 1, isBodyweight: false },
+  "Copa de tríceps sobre cabeza c/ mancuerna": { bwMult: 0.26, step: 1, isBodyweight: false },
+  "Aperturas con mancuernas": { bwMult: 0.24, step: 1, isBodyweight: false },
+  "Curl inclinado con mancuernas": { bwMult: 0.22, step: 1, isBodyweight: false },
+  "Elevaciones laterales con mancuernas": { bwMult: 0.13, step: 1, isBodyweight: false },
+  "Sissy squat asistida / extensión c/ banda": { bwMult: 0.16, step: 1, isBodyweight: false },
+  "Curl femoral sentado con banda": { bwMult: 0.20, step: 1, isBodyweight: false },
+
+  "Dominadas pronas / supinas en barra": { bwMult: 0, step: 1, isBodyweight: true },
+  "Elevaciones de piernas colgado en barra": { bwMult: 0, step: 1, isBodyweight: true },
+  "Flexiones con déficit y mochila": { bwMult: 0, step: 1, isBodyweight: true },
+  "Remo invertido bajo mesa / banda": { bwMult: 0, step: 1, isBodyweight: true },
+  "Flexiones en pica con déficit": { bwMult: 0, step: 1, isBodyweight: true },
+  "Sentadilla búlgara con mochila": { bwMult: 0, step: 1, isBodyweight: true },
+  "Reverse Nordic excéntrico": { bwMult: 0, step: 1, isBodyweight: true },
+  "Curl femoral deslizante en suelo (sliders)": { bwMult: 0, step: 1, isBodyweight: true },
+  "Puente de glúteo unilateral": { bwMult: 0, step: 1, isBodyweight: true },
+  "Gemelos de pie unilateral en escalón": { bwMult: 0, step: 1, isBodyweight: true },
+  "Crunch inverso con banda": { bwMult: 0, step: 1, isBodyweight: true },
+  "Aducción unilateral con banda": { bwMult: 0.16, step: 1, isBodyweight: false },
+  "Pullover con banda anclada": { bwMult: 0.22, step: 1, isBodyweight: false },
+  "Elevación lateral con banda": { bwMult: 0.10, step: 1, isBodyweight: false },
+  "Curl con banda pisada (codo atrás)": { bwMult: 0.18, step: 1, isBodyweight: false },
+  "Extensión sobre cabeza con banda": { bwMult: 0.20, step: 1, isBodyweight: false },
+  "Buenos días con banda y mochila": { bwMult: 0.25, step: 1, isBodyweight: false }
+};
+
+export function parseRepMid(repsStr) {
+  const nums = String(repsStr || "").match(/\d+(\.\d+)?/g);
+  if (!nums || nums.length === 0) return 10;
+  if (nums.length === 1) return parseFloat(nums[0]);
+  return (parseFloat(nums[0]) + parseFloat(nums[1])) / 2;
+}
+
+export function parseRirMid(rirStr) {
+  const nums = String(rirStr || "").match(/\d+(\.\d+)?/g);
+  if (!nums || nums.length === 0) return 1;
+  if (nums.length === 1) return parseFloat(nums[0]);
+  return (parseFloat(nums[0]) + parseFloat(nums[1])) / 2;
+}
+
+function roundToStep(val, step) {
+  const s = step > 0 ? step : 1;
+  return Math.round(val / s) * s;
+}
+
+export function getExerciseLoadProfile(exName, muscle, env) {
+  if (LOAD_PROFILES[exName]) return LOAD_PROFILES[exName];
+  if (env === "home_min") return { bwMult: 0.18, step: 1, isBodyweight: false };
+  const fallbackMult = muscle === "Cuádriceps" || muscle === "Isquiotibiales" ? 0.65 : 0.35;
+  return { bwMult: fallbackMult, step: env === "gym" ? 2.5 : 1, isBodyweight: false };
+}
+
 export function createDefaultQuadaState() {
   return {
     days: 4,
     env: "gym",
     level: "inter",
     supersets: true,
-    focus: ["Cuádriceps", "Espalda"]
+    focus: ["Cuádriceps", "Espalda"],
+    bodyWeightKg: 75,
+    sex: "male",
+    customWeights: {}
   };
 }
 
@@ -204,6 +283,18 @@ export function loadQuadaState() {
     if (!raw) return createDefaultQuadaState();
     const parsed = JSON.parse(raw);
     const def = createDefaultQuadaState();
+    const bw = parseFloat(parsed.bodyWeightKg);
+    const customWeights = {};
+    if (parsed.customWeights && typeof parsed.customWeights === "object" && !Array.isArray(parsed.customWeights)) {
+      for (const [k, arr] of Object.entries(parsed.customWeights)) {
+        if (Array.isArray(arr)) {
+          customWeights[k] = arr.map((v) => {
+            const n = parseFloat(v);
+            return Number.isFinite(n) && n >= 0 ? Math.min(500, n) : 0;
+          });
+        }
+      }
+    }
     return {
       days: Number.isInteger(parsed.days) && parsed.days >= 1 && parsed.days <= 6 ? parsed.days : def.days,
       env: QUADA_ENVS.some((e) => e.id === parsed.env) ? parsed.env : def.env,
@@ -211,7 +302,10 @@ export function loadQuadaState() {
       supersets: typeof parsed.supersets === "boolean" ? parsed.supersets : def.supersets,
       focus: Array.isArray(parsed.focus)
         ? parsed.focus.filter((m) => QUADA_MUSCLES.includes(m)).slice(0, 3)
-        : def.focus
+        : def.focus,
+      bodyWeightKg: Number.isFinite(bw) ? Math.max(35, Math.min(250, Math.round(bw * 2) / 2)) : def.bodyWeightKg,
+      sex: parsed.sex === "female" ? "female" : "male",
+      customWeights
     };
   } catch {
     return createDefaultQuadaState();
@@ -230,11 +324,19 @@ export function computeQuadaPlan(state) {
   const lv = QUADA_LEVELS.find((x) => x.id === state.level) || QUADA_LEVELS[1];
   const template = SPLIT_TEMPLATES[state.days] || SPLIT_TEMPLATES[4];
   const fracVol = Object.fromEntries(QUADA_MUSCLES.map((m) => [m, 0]));
+  const bodyWeightKg = Number.isFinite(state.bodyWeightKg) ? Math.max(35, Math.min(250, state.bodyWeightKg)) : 75;
+  const sexMult = state.sex === "female" ? 0.68 : 1.0;
+  const loadLevelMult = lv.loadMult ?? 1.0;
+  const customMap = state.customWeights || {};
+
   let maxSessionDirect = 0;
   let totalMinutes = 0;
+  let totalVolumeKg = 0;
 
   const daysOut = template.map((day, dIdx) => {
     const rows = [];
+    let dayVolumeKg = 0;
+
     day.muscles.forEach((m) => {
       const pool = QUADA_EXERCISES[m][state.env] || QUADA_EXERCISES[m].gym;
       const isFocus = state.focus.includes(m);
@@ -250,7 +352,32 @@ export function computeQuadaPlan(state) {
       ) : null;
       const restSec = state.supersets && isPair ? Math.round(ex.rest * 0.64) : ex.rest;
 
+      const rowKey = `${dIdx}:${ex.name}`;
+      const repMid = parseRepMid(ex.reps);
+      const rirMid = parseRirMid(ex.rir);
+      const effReps = repMid + rirMid;
+      const pct1RM = 1 / (1 + effReps / 30);
+      const profile = getExerciseLoadProfile(ex.name, m, state.env);
+
+      const estKg = profile.isBodyweight
+        ? 0
+        : Math.max(profile.step, roundToStep(bodyWeightKg * profile.bwMult * loadLevelMult * sexMult * pct1RM, profile.step));
+      const estimatedSets = Array.from({ length: sets }, () => estKg);
+      const customArr = Array.isArray(customMap[rowKey]) ? customMap[rowKey] : null;
+      const seriesKg = estimatedSets.map((est, sIdx) => {
+        if (customArr && Number.isFinite(customArr[sIdx]) && customArr[sIdx] >= 0) {
+          return customArr[sIdx];
+        }
+        return est;
+      });
+      const isCustom = Boolean(customArr && seriesKg.some((v, i) => v !== estimatedSets[i]));
+      const rowVolumeKg = Math.round(
+        seriesKg.reduce((sum, kg) => sum + (profile.isBodyweight ? bodyWeightKg * 0.65 + kg : kg) * repMid, 0)
+      );
+
+      dayVolumeKg += rowVolumeKg;
       rows.push({
+        rowKey,
         muscle: m,
         exName: ex.name,
         note: ex.note,
@@ -260,7 +387,12 @@ export function computeQuadaPlan(state) {
         restSec,
         tempo: ex.tempo,
         ssTag,
-        isFocus
+        isFocus,
+        isBodyweight: profile.isBodyweight,
+        estimatedSets,
+        seriesKg,
+        isCustom,
+        rowVolumeKg
       });
 
       if (sets > maxSessionDirect) maxSessionDirect = sets;
@@ -274,7 +406,8 @@ export function computeQuadaPlan(state) {
     const avgRest = rows.reduce((a, r) => a + r.restSec, 0) / Math.max(1, rows.length);
     const mins = Math.round((daySets * (42 + avgRest)) / 60);
     totalMinutes += mins;
-    return { title: day.title, rows, daySets, mins };
+    totalVolumeKg += dayVolumeKg;
+    return { title: day.title, rows, daySets, mins, dayVolumeKg };
   });
 
   const totalWeeklySets = Object.values(fracVol).reduce((a, b) => a + b, 0);
@@ -283,6 +416,59 @@ export function computeQuadaPlan(state) {
     daysOut,
     maxSessionDirect,
     totalWeeklySets,
+    totalVolumeKg,
     avgMins: Math.round(totalMinutes / Math.max(1, daysOut.length))
   };
+}
+
+function formatSeriesWeights(r) {
+  return r.seriesKg
+    .map((kg, idx) => {
+      if (r.isBodyweight) {
+        return kg > 0 ? `S${idx + 1}: Peso corporal +${kg} kg` : `S${idx + 1}: Peso corporal`;
+      }
+      return `S${idx + 1}: ${kg} kg`;
+    })
+    .join(" · ");
+}
+
+export function formatQuadaPlainText(state, plan) {
+  const split = QUADA_SPLIT_LABELS[state.days] || `${state.days} días`;
+  const env = QUADA_ENVS.find((e) => e.id === state.env)?.label || state.env;
+  const lvl = QUADA_LEVELS.find((l) => l.id === state.level)?.label || state.level;
+  const focusTxt = state.focus.length ? state.focus.join(", ") : "Equilibrado";
+  const sexTxt = state.sex === "female" ? "Mujer" : "Hombre";
+
+  const lines = [
+    "HUMANIA · QUADA — RUTINA PERSONALIZADA",
+    "========================================",
+    `Estructura: ${split} | Entorno: ${env}`,
+    `Nivel: ${lvl} | Sexo: ${sexTxt} | Peso ref.: ${state.bodyWeightKg} kg`,
+    `Foco prioritario: ${focusTxt} | Superseries: ${state.supersets ? "Sí (-36% tiempo)" : "No"}`,
+    `Tonelaje semanal estimado: ${Math.round(plan.totalVolumeKg)} kg (${plan.totalWeeklySets.toFixed(1)} series fraccionales)`,
+    ""
+  ];
+
+  plan.daysOut.forEach((day) => {
+    lines.push(`${day.title.toUpperCase()} (${day.daySets} series · ~${day.mins} min · ~${Math.round(day.dayVolumeKg)} kg)`);
+    lines.push("-".repeat(day.title.length + 28));
+    day.rows.forEach((r) => {
+      const ss = r.ssTag ? `[Superserie ${r.ssTag}] ` : "";
+      lines.push(`• ${ss}${r.exName} (${r.muscle})`);
+      lines.push(`  ${r.sets} × ${r.reps} reps | RIR ${r.rir} | Descanso ${r.restSec}s | Tempo ${r.tempo}`);
+      lines.push(`  Carga: ${formatSeriesWeights(r)}${r.isCustom ? " [fijado]" : " [est.]"}`);
+      lines.push(`  Nota: ${r.note}`);
+    });
+    lines.push("");
+  });
+
+  lines.push("RESUMEN SEMANAL DE VOLUMEN FRACCIONAL");
+  lines.push("-------------------------------------");
+  QUADA_MUSCLES.forEach((m) => {
+    const v = plan.fracVol[m];
+    const zone = v >= 11 ? "Óptimo (11–18)" : v >= 5 ? "Máx. Eficiencia (5–10)" : v >= 4 ? "MEV (4)" : "Bajo MEV";
+    lines.push(`- ${m}: ${v.toFixed(1)} series · ${zone}`);
+  });
+
+  return lines.join("\n");
 }

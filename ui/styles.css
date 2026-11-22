@@ -1829,6 +1829,151 @@ select:focus {
   margin-right: 4px;
 }
 
+.quada-ref-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quada-ref-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.quada-ref-field input,
+.quada-ref-field select {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.quada-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.quada-load-cell {
+  min-width: 175px;
+}
+
+.quada-series-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.quada-set-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.quada-set-chip.is-custom {
+  border-color: var(--helio);
+  background: var(--helio-soft);
+}
+
+.quada-set-chip input {
+  width: 44px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: right;
+  padding: 1px 0;
+}
+
+.quada-set-chip input:focus {
+  outline: none;
+}
+
+.quada-load-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.quada-load-tag {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+.quada-load-tag.is-custom {
+  color: var(--helio);
+  font-weight: 700;
+}
+
+.quada-reset-btn {
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: 3px;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 2px 5px;
+  cursor: pointer;
+}
+
+.quada-reset-btn:hover {
+  border-color: var(--helio);
+  color: var(--helio);
+}
+
+@media print {
+  #humaniaHub,
+  #diolAppShell,
+  #quadaAppShell > .topbar,
+  .quada-config-deck,
+  .quada-export-actions,
+  .quada-reset-btn,
+  .modal-backdrop,
+  .param-modal-backdrop,
+  #toastContainer {
+    display: none !important;
+  }
+
+  body {
+    background: #FFFFFF !important;
+    color: #112233 !important;
+  }
+
+  #quadaAppShell,
+  #quadaRoot {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .quada-day-card,
+  .quada-print-sheet,
+  .quada-vol-section {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border-color: #CBD5E1 !important;
+  }
+}
+
 .modal-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
