@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Diol",
-  "version": "0.3.24",
+  "productName": "Humania",
+  "version": "0.3.25",
   "identifier": "com.jc.vitamindsim",
   "build": {
     "frontendDist": "../ui"
@@ -9,7 +9,7 @@
   "app": {
     "windows": [
       {
-        "title": "Diol",
+        "title": "Humania",
         "width": 1380,
         "height": 880,
         "resizable": true,

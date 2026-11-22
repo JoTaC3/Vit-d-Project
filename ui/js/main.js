@@ -3,6 +3,7 @@
  */
 
 import { estimateBodyFatCUNBAE } from "./pkEngine.js";
+import { initQuadaModule } from "./quadaUi.js";
 import {
   store,
   STORAGE_KEY_THEME,
@@ -246,6 +247,8 @@ function showHumaniaView(view) {
   quada.classList.toggle("hidden", view !== "quada");
   if (view === "diol") {
     requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+  } else if (view === "quada") {
+    initQuadaModule();
   }
 }
 

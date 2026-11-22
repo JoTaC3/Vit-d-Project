@@ -1417,7 +1417,7 @@ select:focus {
 
 .humania-brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
 }
 
@@ -1580,6 +1580,253 @@ select:focus {
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid var(--border-color);
+}
+
+/* MÓDULO QUADA */
+#quadaRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.quada-config-deck {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px 20px;
+  align-items: start;
+}
+
+.quada-cfg-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quada-cfg-full {
+  grid-column: 1 / -1;
+}
+
+.quada-cfg-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--helio);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quada-seg-row,
+.quada-focus-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quada-seg-btn,
+.quada-focus-chip {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.quada-seg-btn {
+  flex: 1 1 auto;
+  text-align: center;
+}
+
+.quada-seg-btn.active {
+  background: var(--helio);
+  color: var(--btn-ink);
+  border-color: var(--helio);
+}
+
+.quada-focus-chip.active {
+  background: var(--serum);
+  color: var(--btn-ink);
+  border-color: var(--serum);
+}
+
+.quada-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.quada-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.quada-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.quada-vol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px 22px;
+}
+
+.quada-vol-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quada-vol-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.quada-vol-nums {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.quada-vol-track {
+  position: relative;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.quada-vol-zone-opt {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 45.8%;
+  width: 29.2%;
+  background: var(--success-soft);
+  border-left: 1px dashed var(--success);
+  border-right: 1px dashed var(--success);
+}
+
+.quada-vol-fill {
+  position: relative;
+  height: 100%;
+  background: var(--helio);
+  transition: width 0.2s ease;
+}
+
+.quada-vol-fill.opt { background: var(--success); }
+.quada-vol-fill.eff { background: var(--serum); }
+.quada-vol-fill.low { background: var(--warning); }
+
+.quada-days-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+}
+
+.quada-day-card {
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quada-day-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 6px;
+}
+
+.quada-day-head h3 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.quada-day-meta,
+.quada-mono {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.quada-day-meta {
+  color: var(--text-muted);
+}
+
+.quada-ex-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.quada-ex-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  padding: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.quada-ex-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+}
+
+.quada-ex-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quada-ex-note {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.quada-ss-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--helio);
+  color: var(--btn-ink);
+  margin-right: 4px;
 }
 
 .modal-card {
