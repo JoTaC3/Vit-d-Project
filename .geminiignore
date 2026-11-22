@@ -1,0 +1,6 @@
+mockup/
+src-tauri/gen/
+src-tauri/target/
+node_modules/
+ui/chart.umd.min.js
+ui/vendor/

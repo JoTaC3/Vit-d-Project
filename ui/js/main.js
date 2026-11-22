@@ -189,27 +189,115 @@ async function checkDesktopUpdate() {
   }
 }
 
+let cienciaLoadPromise = null;
+async function ensureCienciaLoaded() {
+  const sec = $id("tab-ciencia");
+  if (!sec || sec.dataset.loaded === "1") return;
+  if (!cienciaLoadPromise) {
+    cienciaLoadPromise = import("./cienciaContent.js")
+      .then(({ CIENCIA_HTML }) => {
+        if (sec.dataset.loaded !== "1") {
+          sec.innerHTML = CIENCIA_HTML;
+          sec.dataset.loaded = "1";
+        }
+      })
+      .catch((err) => {
+        cienciaLoadPromise = null;
+        console.error("Error cargando contenido de ciencia:", err);
+      });
+  }
+  await cienciaLoadPromise;
+}
+
+function syncMirrorThemeButtons() {
+  const iconHtml = $id("themeIcon")?.innerHTML ?? "";
+  const textVal = $id("themeText")?.textContent ?? "";
+  [
+    ["hubThemeIcon", "hubThemeText"],
+    ["quadaThemeIcon", "quadaThemeText"]
+  ].forEach(([iconId, textId]) => {
+    const ic = $id(iconId);
+    const tx = $id(textId);
+    if (ic) ic.innerHTML = iconHtml;
+    if (tx) tx.textContent = textVal;
+  });
+}
+
+function closeParamModal() {
+  document.querySelectorAll(".sidebar .panel-card").forEach((c) => {
+    c.classList.remove("modal-open");
+    c.classList.add("collapsed");
+  });
+  const bd = $id("paramModalBackdrop");
+  if (bd) {
+    bd.classList.add("hidden");
+    bd.setAttribute("aria-hidden", "true");
+  }
+}
+
+function showHumaniaView(view) {
+  const hub = $id("humaniaHub");
+  const diol = $id("diolAppShell");
+  const quada = $id("quadaAppShell");
+  if (!hub || !diol || !quada) return;
+  closeParamModal();
+  hub.classList.toggle("hidden", view !== "hub");
+  diol.classList.toggle("hidden", view !== "diol");
+  quada.classList.toggle("hidden", view !== "quada");
+  if (view === "diol") {
+    requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+  }
+}
+
 function bindUIEvents() {
+  $id("launchDiolBtn")?.addEventListener("click", () => showHumaniaView("diol"));
+  $id("launchQuadaBtn")?.addEventListener("click", () => showHumaniaView("quada"));
+  $id("backToHumaniaFromDiol")?.addEventListener("click", () => showHumaniaView("hub"));
+  $id("backToHumaniaFromQuada")?.addEventListener("click", () => showHumaniaView("hub"));
+
   document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    btn.addEventListener("click", () => {
+      if (btn.dataset.tab === "ciencia") ensureCienciaLoaded();
+      switchTab(btn.dataset.tab);
+    });
   });
 
   document.querySelectorAll(".sidebar .panel-head").forEach((head) => {
     head.addEventListener("click", () => {
       const card = head.closest(".panel-card");
       if (!card) return;
-      const wasCollapsed = card.classList.contains("collapsed");
-      if (window.innerWidth >= 1121 && wasCollapsed) {
-        document.querySelectorAll(".sidebar .panel-card").forEach((c) => c.classList.add("collapsed"));
+      if (card.classList.contains("modal-open")) return;
+      closeParamModal();
+      card.classList.remove("collapsed");
+      card.classList.add("modal-open");
+      const bd = $id("paramModalBackdrop");
+      if (bd) {
+        bd.classList.remove("hidden");
+        bd.setAttribute("aria-hidden", "false");
       }
-      card.classList.toggle("collapsed");
     });
+  });
+
+  $id("paramModalBackdrop")?.addEventListener("click", closeParamModal);
+  document.querySelectorAll(".param-modal-close").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeParamModal();
+    });
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeParamModal();
   });
 
   $id("themeToggle")?.addEventListener("click", () => {
     const current = document.documentElement.getAttribute("data-theme");
     applyTheme(current === "dark" ? "light" : "dark");
+    syncMirrorThemeButtons();
     if (!chartsMod.rerenderChartsFromSnapshot?.()) safeRenderAll();
+  });
+
+  ["hubThemeToggle", "quadaThemeToggle"].forEach((id) => {
+    $id(id)?.addEventListener("click", () => $id("themeToggle")?.click());
   });
 
   document.querySelectorAll("#unitToggle button").forEach((btn) => {
@@ -484,10 +572,12 @@ function bindUIEvents() {
 
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
+  syncMirrorThemeButtons();
   bindUIEvents();
-  if (window.innerWidth >= 1121) {
-    document.querySelectorAll(".sidebar .panel-card").forEach((c) => c.classList.add("collapsed"));
-  }
+  document.querySelectorAll(".sidebar .panel-card").forEach((c) => {
+    c.classList.remove("modal-open");
+    c.classList.add("collapsed");
+  });
 
   try {
     initializeProfiles();
@@ -500,4 +590,5 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   checkDesktopUpdate();
+  window.requestIdleCallback?.(ensureCienciaLoaded) ?? setTimeout(ensureCienciaLoaded, 400);
 });
