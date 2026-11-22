@@ -421,9 +421,8 @@ button:focus-visible,
   }
 
   .sidebar {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -437,8 +436,24 @@ button:focus-visible,
     border-radius: 0;
     box-shadow: none;
     background: transparent;
-    flex: 1 1 200px;
-    padding: 10px 14px;
+    padding: 12px 16px;
+  }
+
+  .sidebar .panel-card:not(.modal-open) .panel-head::after {
+    content: "Editar ↗";
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--helio);
+    opacity: 0;
+    transition: opacity 0.14s ease;
+    white-space: nowrap;
+  }
+
+  .sidebar .panel-card:not(.modal-open):hover .panel-head::after,
+  .sidebar .panel-card:not(.modal-open) .panel-head:focus-visible::after {
+    opacity: 1;
   }
 
   .sidebar .panel-card + .panel-card {
@@ -1441,7 +1456,7 @@ select:focus {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 36px 20px 56px;
+  padding: 24px 24px 64px;
   gap: 32px;
 }
 
@@ -1511,11 +1526,41 @@ select:focus {
   box-shadow: 0 12px 28px rgba(17, 29, 41, 0.16);
 }
 
+html[data-theme="light"] #launchQuadaBtn:hover .hub-tile-square,
+html[data-theme="light"] #launchQuadaBtn:focus-visible .hub-tile-square {
+  border-color: #9E2A1C;
+  box-shadow: 0 12px 28px rgba(158, 42, 28, 0.22);
+}
+
+html[data-theme="dark"] #launchQuadaBtn:hover .hub-tile-square,
+html[data-theme="dark"] #launchQuadaBtn:focus-visible .hub-tile-square {
+  border-color: #E06D53;
+  box-shadow: 0 12px 28px rgba(224, 109, 83, 0.24);
+}
+
+html[data-theme="light"] #launchDiolBtn:hover .hub-tile-square,
+html[data-theme="light"] #launchDiolBtn:focus-visible .hub-tile-square {
+  border-color: #306998;
+  box-shadow: 0 12px 28px rgba(48, 105, 152, 0.22);
+}
+
+html[data-theme="dark"] #launchDiolBtn:hover .hub-tile-square,
+html[data-theme="dark"] #launchDiolBtn:focus-visible .hub-tile-square {
+  border-color: #F4D175;
+  box-shadow: 0 12px 28px rgba(244, 209, 117, 0.24);
+}
+
 .hub-app-name {
   font-family: var(--font-display);
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+.hub-app-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: -8px;
 }
 
 .back-hub-btn {
@@ -1541,7 +1586,7 @@ select:focus {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(720px, calc(100vw - 24px));
+  width: min(760px, calc(100vw - 24px));
   max-height: 86vh;
   overflow-y: auto;
   z-index: 1200;
@@ -1549,18 +1594,24 @@ select:focus {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-  padding: 18px 22px;
+  padding: 0 24px 24px;
+  line-height: 20px;
 }
 
 .sidebar .panel-card.modal-open .panel-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-card);
   cursor: default;
-  padding-bottom: 10px;
+  padding: 16px 0 12px;
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .sidebar .panel-card.modal-open > .panel-body {
   display: block;
+  gap: 16px;
 }
 
 @media (min-width: 1121px) {
@@ -1582,32 +1633,98 @@ select:focus {
   border-top: 1px solid var(--border-color);
 }
 
-/* MÓDULO QUADA */
+/* MÓDULO QUADA — LÁMINA ANATÓMICA & FORJA SANGUINA */
+html[data-theme="light"] #quadaAppShell {
+  --q-bg: #F7F3EC;
+  --q-surface: #FCF9F4;
+  --q-surface-alt: #EFE8DC;
+  --q-border: #D5C9B6;
+  --q-ink: #1E1815;
+  --q-muted: #5A4B41;
+  --q-accent: #9E2A1C;
+  --q-accent-2: #9A4406;
+  --q-btn-ink: #FCF9F4;
+}
+
+html[data-theme="dark"] #quadaAppShell {
+  --q-bg: #161312;
+  --q-surface: #211C1A;
+  --q-surface-alt: #2B2421;
+  --q-border: #3D322D;
+  --q-ink: #EDE6DC;
+  --q-muted: #B5A69B;
+  --q-accent: #E06D53;
+  --q-accent-2: #E2A84B;
+  --q-btn-ink: #161312;
+}
+
+#quadaAppShell {
+  min-height: 100vh;
+  background: var(--q-bg);
+  color: var(--q-ink);
+}
+
+#quadaAppShell .topbar {
+  background: var(--q-surface);
+  border-bottom: 1px solid var(--q-border);
+}
+
+#quadaAppShell .topbar h1 {
+  color: var(--q-ink);
+}
+
+#quadaAppShell .btn-instrument {
+  background: var(--q-surface-alt);
+  border-color: var(--q-border);
+  color: var(--q-ink);
+}
+
 #quadaRoot {
+  padding-top: 24px;
+  padding-bottom: 48px;
+}
+
+.quada-workbench {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1079px) {
+  .quada-workbench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.quada-rail {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.quada-config-deck {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 16px 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px 20px;
-  align-items: start;
+@media (min-width: 1080px) {
+  .quada-rail {
+    position: sticky;
+    top: 16px;
+  }
 }
 
-.quada-cfg-block {
+.quada-rail-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--q-border);
 }
 
-.quada-cfg-full {
-  grid-column: 1 / -1;
+.quada-rail-group:first-child {
+  padding-top: 0;
+  border-top: none;
 }
 
 .quada-cfg-label {
@@ -1616,7 +1733,7 @@ select:focus {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--helio);
+  color: var(--q-accent);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1634,11 +1751,11 @@ select:focus {
   font-family: var(--font-sans);
   font-size: 0.78rem;
   font-weight: 600;
-  padding: 6px 10px;
+  padding: 6px 9px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  color: var(--text-secondary);
+  border: 1px solid var(--q-border);
+  background: var(--q-surface-alt);
+  color: var(--q-ink);
   cursor: pointer;
 }
 
@@ -1648,185 +1765,29 @@ select:focus {
 }
 
 .quada-seg-btn.active {
-  background: var(--helio);
-  color: var(--btn-ink);
-  border-color: var(--helio);
+  background: var(--q-accent);
+  color: var(--q-btn-ink);
+  border-color: var(--q-accent);
 }
 
 .quada-focus-chip.active {
-  background: var(--serum);
-  color: var(--btn-ink);
-  border-color: var(--serum);
+  background: var(--q-accent-2);
+  color: var(--q-btn-ink);
+  border-color: var(--q-accent-2);
 }
 
 .quada-toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
-  background: var(--bg-well);
-  border: 1px solid var(--border-color);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.quada-panel-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.quada-legend-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text-muted);
-}
-
-.quada-vol-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 10px 22px;
-}
-
-.quada-vol-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.quada-vol-head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.quada-vol-nums {
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
-  color: var(--text-secondary);
-}
-
-.quada-vol-track {
-  position: relative;
-  height: 12px;
-  border-radius: 3px;
-  background: var(--bg-well);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
-
-.quada-vol-zone-opt {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 45.8%;
-  width: 29.2%;
-  background: var(--success-soft);
-  border-left: 1px dashed var(--success);
-  border-right: 1px dashed var(--success);
-}
-
-.quada-vol-fill {
-  position: relative;
-  height: 100%;
-  background: var(--helio);
-  transition: width 0.2s ease;
-}
-
-.quada-vol-fill.opt { background: var(--success); }
-.quada-vol-fill.eff { background: var(--serum); }
-.quada-vol-fill.low { background: var(--warning); }
-
-.quada-days-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 14px;
-}
-
-.quada-day-card {
-  background: var(--bg-well);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.quada-day-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 6px;
-}
-
-.quada-day-head h3 {
-  font-family: var(--font-display);
-  font-size: 1rem;
-}
-
-.quada-day-meta,
-.quada-mono {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-}
-
-.quada-day-meta {
-  color: var(--text-muted);
-}
-
-.quada-ex-table {
-  width: 100%;
-  border-collapse: collapse;
+  background: var(--q-surface-alt);
+  border: 1px solid var(--q-border);
   font-size: 0.78rem;
-}
-
-.quada-ex-table th {
-  text-align: left;
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  color: var(--text-muted);
-  padding: 4px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.quada-ex-table td {
-  padding: 6px 4px;
-  border-bottom: 1px solid var(--border-color);
-  vertical-align: top;
-}
-
-.quada-ex-name {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.quada-ex-note {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--text-muted);
-}
-
-.quada-ss-badge {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 0.64rem;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--helio);
-  color: var(--btn-ink);
-  margin-right: 4px;
+  color: var(--q-ink);
+  cursor: pointer;
 }
 
 .quada-ref-row {
@@ -1839,8 +1800,8 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
+  font-size: 0.74rem;
+  color: var(--q-muted);
 }
 
 .quada-ref-field input,
@@ -1849,9 +1810,152 @@ select:focus {
   font-size: 0.82rem;
   padding: 6px 8px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  color: var(--text-primary);
+  border: 1px solid var(--q-border);
+  background: var(--q-bg);
+  color: var(--q-ink);
+}
+
+/* Okabe-Ito colorblind-safe fractional volume meter */
+.quada-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--q-muted);
+}
+
+.oi-dot::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.oi-dot.oi-low::before,
+.quada-vol-fill.oi-low { background: #56B4E9; }
+.oi-dot.oi-eff::before,
+.quada-vol-fill.oi-eff { background: #0072B2; }
+.oi-dot.oi-opt::before,
+.quada-vol-fill.oi-opt { background: #009E73; }
+.oi-dot.oi-over::before,
+.quada-vol-fill.oi-over { background: #D55E00; }
+
+.quada-vol-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quada-vol-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.quada-vol-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--q-ink);
+}
+
+.quada-vol-nums {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--q-muted);
+}
+
+.quada-vol-track {
+  position: relative;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--q-surface-alt);
+  overflow: hidden;
+}
+
+.quada-vol-zone-opt {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 45.8%;
+  width: 29.2%;
+  border-left: 1px dashed var(--q-muted);
+  border-right: 1px dashed var(--q-muted);
+  opacity: 0.55;
+}
+
+.quada-vol-fill {
+  position: relative;
+  height: 100%;
+  transition: width 0.2s ease;
+}
+
+/* Right Column: Hoja de Bitácora & Cargas */
+.quada-ledger {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.quada-ledger-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--q-border);
+}
+
+.quada-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--q-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.quada-split-heading {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 700;
+  line-height: 28px;
+  margin: 4px 0 12px;
+  color: var(--q-ink);
+}
+
+.quada-inline-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.quada-metric-inline {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.quada-m-lbl {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--q-muted);
+}
+
+.quada-m-val {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  color: var(--q-ink);
 }
 
 .quada-export-actions {
@@ -1859,6 +1963,138 @@ select:focus {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.quada-btn-sec,
+.quada-btn-pri {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.quada-btn-sec {
+  background: var(--q-surface-alt);
+  border: 1px solid var(--q-border);
+  color: var(--q-ink);
+}
+
+.quada-btn-pri {
+  background: var(--q-accent);
+  border: 1px solid var(--q-accent);
+  color: var(--q-btn-ink);
+}
+
+.quada-day-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-bottom: 1px solid var(--q-border);
+  padding-bottom: 12px;
+}
+
+.quada-day-tab {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--q-border);
+  background: transparent;
+  color: var(--q-muted);
+  cursor: pointer;
+}
+
+.quada-day-tab.active {
+  background: var(--q-accent);
+  border-color: var(--q-accent);
+  color: var(--q-btn-ink);
+}
+
+.quada-days-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.quada-day-filtered-out {
+  display: none;
+}
+
+.quada-day-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--q-border);
+  margin-bottom: 8px;
+}
+
+.quada-day-head h3 {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  color: var(--q-ink);
+}
+
+.quada-day-meta,
+.quada-mono {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+.quada-day-meta {
+  color: var(--q-accent-2);
+  font-weight: 700;
+}
+
+.quada-ex-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.quada-ex-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  color: var(--q-muted);
+  padding: 6px 6px;
+  border-bottom: 1px solid var(--q-border);
+}
+
+.quada-ex-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--q-border);
+  vertical-align: top;
+}
+
+.quada-ex-name {
+  font-weight: 700;
+  color: var(--q-ink);
+}
+
+.quada-ex-note {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--q-muted);
+  margin-top: 2px;
+}
+
+.quada-ss-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--q-accent);
+  color: var(--q-btn-ink);
+  margin-right: 5px;
 }
 
 .quada-load-cell {
@@ -1877,23 +2113,23 @@ select:focus {
   gap: 3px;
   padding: 2px 5px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
+  border: 1px solid var(--q-border);
+  background: var(--q-bg);
   font-family: var(--font-mono);
   font-size: 0.68rem;
-  color: var(--text-muted);
+  color: var(--q-muted);
 }
 
 .quada-set-chip.is-custom {
-  border-color: var(--helio);
-  background: var(--helio-soft);
+  border-color: var(--q-accent);
+  background: var(--q-surface-alt);
 }
 
 .quada-set-chip input {
   width: 44px;
   border: none;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--q-ink);
   font-family: var(--font-mono);
   font-size: 0.74rem;
   font-weight: 700;
@@ -1915,18 +2151,18 @@ select:focus {
 .quada-load-tag {
   font-family: var(--font-mono);
   font-size: 0.62rem;
-  color: var(--text-muted);
+  color: var(--q-muted);
 }
 
 .quada-load-tag.is-custom {
-  color: var(--helio);
+  color: var(--q-accent);
   font-weight: 700;
 }
 
 .quada-reset-btn {
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-secondary);
+  border: 1px solid var(--q-border);
+  background: var(--q-surface-alt);
+  color: var(--q-ink);
   border-radius: 3px;
   font-size: 0.7rem;
   line-height: 1;
@@ -1935,15 +2171,16 @@ select:focus {
 }
 
 .quada-reset-btn:hover {
-  border-color: var(--helio);
-  color: var(--helio);
+  border-color: var(--q-accent);
+  color: var(--q-accent);
 }
 
 @media print {
   #humaniaHub,
   #diolAppShell,
   #quadaAppShell > .topbar,
-  .quada-config-deck,
+  .quada-rail,
+  .quada-day-tabs,
   .quada-export-actions,
   .quada-reset-btn,
   .modal-backdrop,
@@ -1952,25 +2189,32 @@ select:focus {
     display: none !important;
   }
 
-  body {
+  body,
+  #quadaAppShell {
     background: #FFFFFF !important;
-    color: #112233 !important;
+    color: #1E1815 !important;
   }
 
   #quadaAppShell,
-  #quadaRoot {
+  #quadaRoot,
+  .quada-workbench {
     display: block !important;
     margin: 0 !important;
     padding: 0 !important;
     max-width: 100% !important;
   }
 
-  .quada-day-card,
-  .quada-print-sheet,
-  .quada-vol-section {
+  .quada-day-filtered-out {
+    display: block !important;
+  }
+
+  .quada-ledger {
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  .quada-day-sheet {
     break-inside: avoid;
-    box-shadow: none !important;
-    border-color: #CBD5E1 !important;
   }
 }
 

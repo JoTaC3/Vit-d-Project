@@ -11,6 +11,7 @@ import {
 
 let initialized = false;
 let quadaState = null;
+let activeDayFilter = "all";
 
 function copyTextWithFallback(text) {
   if (navigator.clipboard?.writeText) {
@@ -38,104 +39,103 @@ export function initQuadaModule() {
   quadaState = loadQuadaState();
 
   root.innerHTML = `
-    <section class="quada-config-deck" aria-label="Configuración rápida del microciclo Quada">
-      <div class="quada-cfg-block">
-        <div class="quada-cfg-label"><span>01 · Días por semana</span><span id="quadaSplitTag"></span></div>
-        <div class="quada-seg-row" id="quadaDaysRow"></div>
-      </div>
+    <div class="quada-workbench">
+      <aside class="quada-rail" aria-label="Parámetros y volumen Quada">
+        <div class="quada-rail-group">
+          <div class="quada-cfg-label"><span>01 · Días por semana</span><span id="quadaSplitTag"></span></div>
+          <div class="quada-seg-row" id="quadaDaysRow"></div>
+        </div>
 
-      <div class="quada-cfg-block">
-        <div class="quada-cfg-label"><span>02 · Recursos / Entorno</span></div>
-        <div class="quada-seg-row" id="quadaEnvRow"></div>
-      </div>
+        <div class="quada-rail-group">
+          <div class="quada-cfg-label"><span>02 · Recursos / Entorno</span></div>
+          <div class="quada-seg-row" id="quadaEnvRow"></div>
+        </div>
 
-      <div class="quada-cfg-block">
-        <div class="quada-cfg-label"><span>03 · Nivel y Tiempo</span></div>
-        <div class="quada-seg-row" id="quadaLevelRow"></div>
-        <label class="quada-toggle-row">
-          <span><strong>Superseries antagonistas</strong> (<code>-36%</code> duración)</span>
-          <input type="checkbox" id="quadaSupersetToggle" />
-        </label>
-      </div>
-
-      <div class="quada-cfg-block">
-        <div class="quada-cfg-label"><span>04 · Referencia Corporal (kg)</span></div>
-        <div class="quada-ref-row">
-          <label class="quada-ref-field">
-            <span>Peso corporal (kg)</span>
-            <input type="number" id="quadaBodyWeightInput" min="35" max="250" step="0.5" inputmode="decimal" />
-          </label>
-          <label class="quada-ref-field">
-            <span>Sexo</span>
-            <select id="quadaSexSelect">
-              <option value="male">Hombre</option>
-              <option value="female">Mujer</option>
-            </select>
+        <div class="quada-rail-group">
+          <div class="quada-cfg-label"><span>03 · Nivel y Tiempo</span></div>
+          <div class="quada-seg-row" id="quadaLevelRow"></div>
+          <label class="quada-toggle-row">
+            <span><strong>Superseries antagonistas</strong> (<code>-36%</code>)</span>
+            <input type="checkbox" id="quadaSupersetToggle" />
           </label>
         </div>
-      </div>
 
-      <div class="quada-cfg-block quada-cfg-full">
-        <div class="quada-cfg-label">
-          <span>05 · Foco muscular prioritario (hasta 3 entre 10)</span>
-          <span id="quadaFocusCount"></span>
+        <div class="quada-rail-group">
+          <div class="quada-cfg-label"><span>04 · Referencia Corporal (kg)</span></div>
+          <div class="quada-ref-row">
+            <label class="quada-ref-field">
+              <span>Peso (kg)</span>
+              <input type="number" id="quadaBodyWeightInput" min="35" max="250" step="0.5" inputmode="decimal" />
+            </label>
+            <label class="quada-ref-field">
+              <span>Sexo</span>
+              <select id="quadaSexSelect">
+                <option value="male">Hombre</option>
+                <option value="female">Mujer</option>
+              </select>
+            </label>
+          </div>
         </div>
-        <div class="quada-focus-grid" id="quadaFocusGrid"></div>
-      </div>
-    </section>
 
-    <section class="telemetry-deck">
-      <div class="telemetry-grid">
-        <div class="telemetry-card">
-          <span class="telemetry-label">VOLUMEN FRACCIONAL TOTAL</span>
-          <span class="telemetry-val" id="quadaKpiVol">--</span>
-          <span class="telemetry-sub">Suma semanal (1.0 directa + 0.5 sinergista)</span>
+        <div class="quada-rail-group">
+          <div class="quada-cfg-label">
+            <span>05 · Foco Muscular (máx. 3/10)</span>
+            <span id="quadaFocusCount"></span>
+          </div>
+          <div class="quada-focus-grid" id="quadaFocusGrid"></div>
         </div>
-        <div class="telemetry-card">
-          <span class="telemetry-label">DURACIÓN MEDIA / SESIÓN</span>
-          <span class="telemetry-val" id="quadaKpiTime">--</span>
-          <span class="telemetry-sub" id="quadaKpiTimeSub">--</span>
-        </div>
-        <div class="telemetry-card highlight-card">
-          <span class="telemetry-label">TECHO POR SESIÓN (PUOS &le; 11)</span>
-          <span class="telemetry-val" id="quadaKpiPuos">--</span>
-          <span class="telemetry-sub" id="quadaKpiPuosSub">--</span>
-        </div>
-        <div class="telemetry-card">
-          <span class="telemetry-label">TONELAJE SEMANAL EST.</span>
-          <span class="telemetry-val" id="quadaKpiLoad">--</span>
-          <span class="telemetry-sub" id="quadaKpiSpec">--</span>
-        </div>
-      </div>
-    </section>
 
-    <section class="panel-card quada-vol-section">
-      <div class="quada-panel-head">
-        <h2>Medidor de Volumen Fraccional Semanal</h2>
-        <div class="quada-legend-row">
-          <span>MEV: 4</span>
-          <span>Máx. Eficiencia: 5–10</span>
-          <span>Óptimo: 11–18</span>
-          <span>PUOS/sesión: &le; 11</span>
+        <div class="quada-rail-group quada-vol-section">
+          <div class="quada-cfg-label">
+            <span>Volumen Fraccional Semanal</span>
+            <span>Okabe–Ito</span>
+          </div>
+          <div class="quada-legend-row">
+            <span class="oi-dot oi-low">&lt;4</span>
+            <span class="oi-dot oi-eff">4–10</span>
+            <span class="oi-dot oi-opt">11–18</span>
+            <span class="oi-dot oi-over">&gt;18 / PUOS</span>
+          </div>
+          <div class="quada-vol-grid" id="quadaVolGrid"></div>
         </div>
-      </div>
-      <div class="quada-vol-grid" id="quadaVolGrid"></div>
-    </section>
+      </aside>
 
-    <section class="panel-card quada-print-sheet">
-      <div class="quada-panel-head">
-        <div>
-          <h2>Planificador Semanal Día por Día</h2>
-          <span class="hint" id="quadaPlanSummarySub">--</span>
-        </div>
-        <div class="quada-export-actions">
-          <button type="button" id="quadaCopyTxtBtn" class="btn-instrument btn-sm">Copiar rutina</button>
-          <button type="button" id="quadaDownloadTxtBtn" class="btn-instrument btn-sm">Descargar .txt</button>
-          <button type="button" id="quadaPrintBtn" class="btn-helio btn-sm">Imprimir / PDF</button>
-        </div>
-      </div>
-      <div class="quada-days-grid" id="quadaDaysGrid"></div>
-    </section>
+      <section class="quada-ledger quada-print-sheet" aria-label="Bitácora semanal y cargas">
+        <header class="quada-ledger-head">
+          <div class="quada-ledger-title-block">
+            <span class="quada-eyebrow" id="quadaPlanSummarySub">--</span>
+            <h2 class="quada-split-heading" id="quadaSplitHeading">4d Upper/Lower</h2>
+            <div class="quada-inline-metrics">
+              <div class="quada-metric-inline">
+                <span class="quada-m-lbl">Volumen</span>
+                <strong class="quada-m-val" id="quadaKpiVol">--</strong>
+              </div>
+              <div class="quada-metric-inline">
+                <span class="quada-m-lbl">Sesión</span>
+                <strong class="quada-m-val" id="quadaKpiTime">--</strong>
+              </div>
+              <div class="quada-metric-inline">
+                <span class="quada-m-lbl">Tonelaje est.</span>
+                <strong class="quada-m-val" id="quadaKpiLoad">--</strong>
+              </div>
+              <div class="quada-metric-inline">
+                <span class="quada-m-lbl">PUOS &le; 11</span>
+                <strong class="quada-m-val" id="quadaKpiPuos">--</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="quada-export-actions">
+            <button type="button" id="quadaCopyTxtBtn" class="quada-btn-sec">Copiar rutina</button>
+            <button type="button" id="quadaDownloadTxtBtn" class="quada-btn-sec">Descargar .txt</button>
+            <button type="button" id="quadaPrintBtn" class="quada-btn-pri">Imprimir / PDF</button>
+          </div>
+        </header>
+
+        <nav class="quada-day-tabs" id="quadaDayTabs" aria-label="Filtrar por día"></nav>
+        <div class="quada-days-list" id="quadaDaysGrid"></div>
+      </section>
+    </div>
   `;
 
   const daysRow = document.getElementById("quadaDaysRow");
@@ -146,6 +146,7 @@ export function initQuadaModule() {
     b.textContent = `${d}d`;
     b.addEventListener("click", () => {
       quadaState.days = d;
+      if (activeDayFilter !== "all" && Number(activeDayFilter) >= d) activeDayFilter = "all";
       saveQuadaState(quadaState);
       renderQuada();
     });
@@ -262,32 +263,32 @@ function renderQuada() {
   document.querySelectorAll("#quadaFocusGrid .quada-focus-chip").forEach((b) => b.classList.toggle("active", quadaState.focus.includes(b.textContent)));
 
   document.getElementById("quadaSplitTag").textContent = QUADA_SPLIT_LABELS[quadaState.days];
-  document.getElementById("quadaFocusCount").textContent = `${quadaState.focus.length} / 3 seleccionados`;
+  document.getElementById("quadaFocusCount").textContent = `${quadaState.focus.length}/3`;
 
   const plan = computeQuadaPlan(quadaState);
-  document.getElementById("quadaKpiVol").textContent = `${plan.totalWeeklySets.toFixed(1)} s/sem`;
-  document.getElementById("quadaKpiTime").textContent = `${plan.avgMins} min`;
-  document.getElementById("quadaKpiTimeSub").textContent = quadaState.supersets ? "Superseries activas (-36%)" : "Series tradicionales";
-  document.getElementById("quadaKpiPuos").textContent = `${plan.maxSessionDirect} / 11`;
-  document.getElementById("quadaKpiPuosSub").textContent = plan.maxSessionDirect <= 11 ? "Dentro del techo PUOS" : "Excede techo PUOS";
-  document.getElementById("quadaKpiLoad").textContent = `${Math.round(plan.totalVolumeKg).toLocaleString("es-CL")} kg`;
-  document.getElementById("quadaKpiSpec").textContent = quadaState.focus.length ? `Foco: ${quadaState.focus.join(" · ")}` : "Foco equilibrado";
   const envLabel = QUADA_ENVS.find((e) => e.id === quadaState.env)?.label || "";
-  document.getElementById("quadaPlanSummarySub").textContent = `${QUADA_SPLIT_LABELS[quadaState.days]} · ${envLabel} · Ref. ${quadaState.bodyWeightKg} kg`;
+  const focusTxt = quadaState.focus.length ? `Foco: ${quadaState.focus.join(", ")}` : "Equilibrado";
 
+  document.getElementById("quadaSplitHeading").textContent = QUADA_SPLIT_LABELS[quadaState.days];
+  document.getElementById("quadaPlanSummarySub").textContent = `${envLabel} · Ref. ${quadaState.bodyWeightKg} kg · ${focusTxt}`;
+  document.getElementById("quadaKpiVol").textContent = `${plan.totalWeeklySets.toFixed(1)} s/sem`;
+  document.getElementById("quadaKpiTime").textContent = `~${plan.avgMins} min${quadaState.supersets ? " (SS)" : ""}`;
+  document.getElementById("quadaKpiLoad").textContent = `${Math.round(plan.totalVolumeKg).toLocaleString("es-CL")} kg`;
+  document.getElementById("quadaKpiPuos").textContent = `${plan.maxSessionDirect}/11 ${plan.maxSessionDirect <= 11 ? "OK" : "ALTO"}`;
+
+  // Okabe-Ito colorblind-safe fractional volume bars
   const volGrid = document.getElementById("quadaVolGrid");
   volGrid.innerHTML = "";
   QUADA_MUSCLES.forEach((m) => {
     const v = plan.fracVol[m];
     const pct = Math.min(100, (v / 24) * 100);
-    const cls = v >= 11 ? "opt" : v >= 5 ? "eff" : "low";
-    const band = v >= 11 ? "Óptimo (11–18)" : v >= 5 ? "Máx. Eficiencia (5–10)" : v >= 4 ? "MEV (4)" : "Bajo MEV";
+    const cls = (v > 18 || plan.maxSessionDirect > 11) ? "oi-over" : v >= 11 ? "oi-opt" : v >= 4 ? "oi-eff" : "oi-low";
     const row = document.createElement("div");
     row.className = "quada-vol-row";
     row.innerHTML = `
       <div class="quada-vol-head">
         <span>${m}${quadaState.focus.includes(m) ? " ★" : ""}</span>
-        <span class="quada-vol-nums">${v.toFixed(1)} s · ${band}</span>
+        <span class="quada-vol-nums">${v.toFixed(1)} s</span>
       </div>
       <div class="quada-vol-track">
         <div class="quada-vol-zone-opt"></div>
@@ -297,11 +298,38 @@ function renderQuada() {
     volGrid.appendChild(row);
   });
 
+  // Day filter tabs
+  const tabsEl = document.getElementById("quadaDayTabs");
+  tabsEl.innerHTML = "";
+  const allBtn = document.createElement("button");
+  allBtn.type = "button";
+  allBtn.className = `quada-day-tab ${activeDayFilter === "all" ? "active" : ""}`;
+  allBtn.textContent = `Todos (${plan.daysOut.length})`;
+  allBtn.addEventListener("click", () => {
+    activeDayFilter = "all";
+    renderQuada();
+  });
+  tabsEl.appendChild(allBtn);
+
+  plan.daysOut.forEach((_, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `quada-day-tab ${activeDayFilter === String(idx) ? "active" : ""}`;
+    btn.textContent = `Día ${idx + 1}`;
+    btn.addEventListener("click", () => {
+      activeDayFilter = String(idx);
+      renderQuada();
+    });
+    tabsEl.appendChild(btn);
+  });
+
+  // Notebook-style day ledger
   const daysGrid = document.getElementById("quadaDaysGrid");
   daysGrid.innerHTML = "";
-  plan.daysOut.forEach((d) => {
+  plan.daysOut.forEach((d, dIdx) => {
+    const isHiddenOnScreen = activeDayFilter !== "all" && activeDayFilter !== String(dIdx);
     const card = document.createElement("article");
-    card.className = "quada-day-card";
+    card.className = `quada-day-sheet${isHiddenOnScreen ? " quada-day-filtered-out" : ""}`;
 
     const head = document.createElement("div");
     head.className = "quada-day-head";

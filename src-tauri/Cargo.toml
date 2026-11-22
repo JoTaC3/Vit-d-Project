@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.3.26"
+version = "0.3.27"
 description = "Humania — Suite clínica y biomecánica (Diol + Quada)"
 authors = ["you"]
 license = ""

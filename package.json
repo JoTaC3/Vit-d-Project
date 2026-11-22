@@ -1,6 +1,6 @@
 {
   "name": "vitd-tauri",
-  "version": "0.3.26",
+  "version": "0.3.27",
   "description": "",
   "main": "index.js",
   "scripts": {
