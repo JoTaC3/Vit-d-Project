@@ -24,7 +24,7 @@
 
 ## Descarga e Instalación
 
-Descarga la última versión compilada (**`v0.3.27`**) desde GitHub Releases:  
+Descarga la última versión compilada (**`v0.3.28`**) desde GitHub Releases:  
 **[https://github.com/JoTaC3/Vit-d-Project/releases/latest](https://github.com/JoTaC3/Vit-d-Project/releases/latest)**
 
 - **Windows x64:** instaladores `.msi` y `.exe` (NSIS), con **auto-actualización integrada** (`tauri-plugin-updater` consultando `latest.json` en GitHub Releases).
@@ -39,10 +39,24 @@ Descarga la última versión compilada (**`v0.3.27`**) desde GitHub Releases:
 
 ## Funcionalidades Principales
 
-1. **Simulador PK & Dosis:** perfil fisiológico (`CUN-BAE` y alometría `FFM`/`FM`), exámenes séricos (semana `0` basal + calibración MAP longitudinal desde semana `≥ 0,5`), evolución antropométrica con movilización lipolítica, múltiples tramos simultáneos de `D3` (UI) e Hidroferol (`266 µg`), conmutación instantánea `ng/mL ↔ nmol/L` (`1 ng/mL = 2,496 nmol/L`), scrubber interactivo, zoom, banda IC 90% y 3 gráficos sincronizados (`25(OH)D` sérica, reserva adiposa y aporte diario biodisponible).
-2. **Planificador Inverso:** búsqueda binaria acoplada al integrador RK4 para resolver esquemas de carga y mantención hacia una meta sérica en 3 estrategias comparativas.
-3. **Memorias Guardadas:** gestión de perfiles locales aislados (`localStorage`), guardado de simulaciones instantáneas e importación/exportación en JSON.
-4. **Modelo Matemático:** documentación completa de las ecuaciones del modelo V7 pre-compilada con KaTeX offline y tabla de rangos clínicos (`< 20`, `20–30`, `30–60`, `60–100`, `> 100 ng/mL`).
+### 1. Humania (Portal Principal)
+- Pantalla de inicio unificada (`HM01`) con acceso directo a **Diol** y **Quada** y retorno rápido (`← Humania`).
+- Tema Día/Noche sincronizado y almacenamiento 100 % local y offline (`localStorage` con llaves aisladas para perfiles de Diol y configuración de Quada).
+
+### 2. Diol — Simulador Farmacocinético PopPK (V7)
+- **Edición modal `01–04`:** la regla superior (`01 Perfil Fisiológico Base`, `02 Exámenes Séricos`, `03 Antropometría`, `04 Esquema de Dosis`) abre ventanas modales amplias para editar parámetros sin comprimir ni desplazar los gráficos.
+- **Simulador PK & Dosis:** modelo compartimental de 4 estados (`gutD3`, `gut25D`, `poolD3`, `pool25D`), estimación `CUN-BAE` y alometría `FFM`/`FM`, calibración Bayesiana MAP longitudinal (semana `>= 0,5`), movilización lipolítica, tramos simultáneos de `D3` (UI) y Calcifediol/Hidroferol (`266 µg`), conmutación `ng/mL ↔ nmol/L` (`1 ng/mL = 2,496 nmol/L`), scrubber interactivo, banda IC 90 % y 3 gráficos sincronizados (`25(OH)D` sérica, reserva adiposa y aporte diario biodisponible).
+- **Planificador Inverso:** búsqueda binaria acoplada al integrador RK4 para resolver esquemas de carga y mantención hacia una meta sérica en 3 estrategias comparativas.
+- **Memorias Guardadas:** perfiles locales aislados, instantáneas de simulación y respaldo/restauración JSON (`diol_respaldo_*.json`).
+- **Modelo Matemático:** 29 ecuaciones del modelo V7 pre-renderizadas offline con KaTeX y tabla de rangos clínicos (`< 20`, `20–30`, `30–60`, `60–100`, `> 100 ng/mL`).
+
+### 3. Quada — Planificador Científico de Hipertrofia y Cargas
+- **Arquitectura semanal (`1–6` días/semana):** selección automática de división (*Full Body*, *Torso/Pierna ×2*, *Torso/Pierna/Empuje/Tirón/Pierna*, *PPL ×2*).
+- **Adaptación por recursos (`3` entornos):** *Gimnasio completo*, *Casa equipada básica* (mancuernas ajustables, banco inclinable, barra de dominadas) y *Casa minimalista* (peso corporal, bandas elásticas y mochila lastrada con escalera de sobrecarga).
+- **Foco muscular y contabilidad fraccional:** selección de hasta `3` grupos prioritarios entre `10` grupos musculares; conteo fraccional en vivo (`1,0` serie directa + `0,5` sinergista) con zonas basadas en evidencia (`MEV: 4`, `Máx. Eficiencia: 5–10`, `Óptimo: 11–18`, techo por sesión `PUOS ≤ 11`) en paleta Okabe–Ito apta para daltonismo.
+- **Prescripción biomecánica y superseries:** selección diferenciada de ejercicios por entorno (p. ej. recto femoral vs. vastos, tríceps sobre la cabeza, curl femoral en estiramiento, gemelos con rodilla extendida), rango de repeticiones, `RIR`, descanso, tempo y modo opcional de superseries antagonistas (`-36 %` duración).
+- **Estimación y registro de cargas (`kg`):** cálculo orientativo de `kg` por ejercicio y por serie (fórmula Epley inversa ajustada por peso corporal, sexo, nivel, repeticiones, `RIR` y patrón biomecánico), con edición manual serie por serie (`S1..Sn`), indicador `est.` / `fijado`, restauración `↺` y tonelaje diario/semanal.
+- **Exportación legible:** copiar la ficha completa en texto plano al portapapeles (`Copiar rutina`), descarga `.txt` e impresión limpia a papel o PDF (`Imprimir / PDF`).
 
 ---
 
@@ -106,8 +120,11 @@ $$
 ├── ui/
 │   ├── js/
 │   │   ├── charts.js
+│   │   ├── cienciaContent.js
 │   │   ├── main.js
 │   │   ├── pkEngine.js
+│   │   ├── quadaEngine.js
+│   │   ├── quadaUi.js
 │   │   ├── state.js
 │   │   └── ui.js
 │   ├── vendor/
