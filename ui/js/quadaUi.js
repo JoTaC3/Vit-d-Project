@@ -3,6 +3,7 @@ import {
   QUADA_SPLIT_LABELS,
   QUADA_ENVS,
   QUADA_LEVELS,
+  QUADA_EXERCISES,
   loadQuadaState,
   saveQuadaState,
   computeQuadaPlan,
@@ -12,6 +13,9 @@ import {
 let initialized = false;
 let quadaState = null;
 let activeDayFilter = "all";
+let activeQuadaTab = "rutina";
+let atlasMuscleFilter = "Todos";
+let atlasEnvFilter = "all";
 
 function copyTextWithFallback(text) {
   if (navigator.clipboard?.writeText) {
@@ -32,6 +36,57 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
 }
 
+function getMuscleFill(muscle, primary, syns) {
+  if (muscle === primary) return "var(--q-accent)";
+  if (syns.includes(muscle)) return "var(--q-accent-2)";
+  return "var(--q-surface-alt)";
+}
+
+function buildAnatomicalSvg(primary, syns = []) {
+  const isPost = ["Espalda", "Isquiotibiales", "Glúteos", "Pantorrillas"].includes(primary);
+  const cPec = getMuscleFill("Pectoral", primary, syns);
+  const cEsp = getMuscleFill("Espalda", primary, syns);
+  const cDel = getMuscleFill("Deltoides", primary, syns);
+  const cBic = getMuscleFill("Bíceps", primary, syns);
+  const cTri = getMuscleFill("Tríceps", primary, syns);
+  const cQuad = getMuscleFill("Cuádriceps", primary, syns);
+  const cIsq = getMuscleFill("Isquiotibiales", primary, syns);
+  const cGlu = getMuscleFill("Glúteos", primary, syns);
+  const cPan = getMuscleFill("Pantorrillas", primary, syns);
+  const cCore = getMuscleFill("Abdomen/Core", primary, syns);
+
+  return `
+    <svg width="78" height="104" viewBox="0 0 80 108" role="img" aria-label="Mapa anatómico ${primary}">
+      <circle cx="40" cy="11" r="7" fill="var(--q-surface-alt)" stroke="var(--q-border)" stroke-width="1.4"/>
+      ${isPost ? `
+        <path d="M25 22 L55 22 L49 52 L31 52 Z" fill="${cEsp}" stroke="var(--q-border)" stroke-width="1.2"/>
+        <ellipse cx="22" cy="26" rx="5" ry="5" fill="${cDel}" stroke="var(--q-border)" stroke-width="1"/>
+        <ellipse cx="58" cy="26" rx="5" ry="5" fill="${cDel}" stroke="var(--q-border)" stroke-width="1"/>
+        <rect x="16" y="31" width="6" height="18" rx="3" fill="${cTri}" stroke="var(--q-border)" stroke-width="1"/>
+        <rect x="58" y="31" width="6" height="18" rx="3" fill="${cTri}" stroke="var(--q-border)" stroke-width="1"/>
+        <path d="M29 52 Q40 49 51 52 L53 63 Q40 66 27 63 Z" fill="${cGlu}" stroke="var(--q-border)" stroke-width="1.2"/>
+        <rect x="28" y="63" width="10" height="20" rx="4" fill="${cIsq}" stroke="var(--q-border)" stroke-width="1.1"/>
+        <rect x="42" y="63" width="10" height="20" rx="4" fill="${cIsq}" stroke="var(--q-border)" stroke-width="1.1"/>
+        <rect x="29" y="84" width="8" height="17" rx="3.5" fill="${cPan}" stroke="var(--q-border)" stroke-width="1.1"/>
+        <rect x="43" y="84" width="8" height="17" rx="3.5" fill="${cPan}" stroke="var(--q-border)" stroke-width="1.1"/>
+        <text x="40" y="106" text-anchor="middle" font-size="6.5" fill="var(--q-muted)" font-family="var(--font-mono)">POSTERIOR</text>
+      ` : `
+        <path d="M27 22 Q40 20 53 22 L51 35 Q40 37 29 35 Z" fill="${cPec}" stroke="var(--q-border)" stroke-width="1.2"/>
+        <rect x="31" y="36" width="18" height="17" rx="3" fill="${cCore}" stroke="var(--q-border)" stroke-width="1.1"/>
+        <ellipse cx="22" cy="25" rx="5" ry="5" fill="${cDel}" stroke="var(--q-border)" stroke-width="1"/>
+        <ellipse cx="58" cy="25" rx="5" ry="5" fill="${cDel}" stroke="var(--q-border)" stroke-width="1"/>
+        <rect x="16" y="30" width="6" height="18" rx="3" fill="${cBic}" stroke="var(--q-border)" stroke-width="1"/>
+        <rect x="58" y="30" width="6" height="18" rx="3" fill="${cBic}" stroke="var(--q-border)" stroke-width="1"/>
+        <rect x="28" y="55" width="10" height="25" rx="4.5" fill="${cQuad}" stroke="var(--q-border)" stroke-width="1.2"/>
+        <rect x="42" y="55" width="10" height="25" rx="4.5" fill="${cQuad}" stroke="var(--q-border)" stroke-width="1.2"/>
+        <rect x="30" y="82" width="7" height="18" rx="3" fill="${cPan}" stroke="var(--q-border)" stroke-width="1"/>
+        <rect x="43" y="82" width="7" height="18" rx="3" fill="${cPan}" stroke="var(--q-border)" stroke-width="1"/>
+        <text x="40" y="106" text-anchor="middle" font-size="6.5" fill="var(--q-muted)" font-family="var(--font-mono)">FRONTAL</text>
+      `}
+    </svg>
+  `;
+}
+
 export function initQuadaModule() {
   const root = document.getElementById("quadaRoot");
   if (!root || initialized) return;
@@ -39,104 +94,143 @@ export function initQuadaModule() {
   quadaState = loadQuadaState();
 
   root.innerHTML = `
-    <div class="quada-workbench">
-      <aside class="quada-rail" aria-label="Parámetros y volumen Quada">
-        <div class="quada-rail-group">
-          <div class="quada-cfg-label"><span>01 · Días por semana</span><span id="quadaSplitTag"></span></div>
-          <div class="quada-seg-row" id="quadaDaysRow"></div>
-        </div>
+    <div class="quada-subnav-bar">
+      <nav class="quada-mode-tabs" aria-label="Vistas de Quada">
+        <button type="button" class="quada-mode-tab active" data-qtab="rutina">1. Rutina</button>
+        <button type="button" class="quada-mode-tab" data-qtab="atlas">2. Atlas de Ejercicios</button>
+      </nav>
+    </div>
 
-        <div class="quada-rail-group">
-          <div class="quada-cfg-label"><span>02 · Recursos / Entorno</span></div>
-          <div class="quada-seg-row" id="quadaEnvRow"></div>
-        </div>
+    <div id="quadaTabRutina" class="quada-tab-panel active">
+      <button type="button" id="quadaMobileRailToggle" class="quada-mobile-rail-toggle">
+        <span>Ajustar parámetros y volumen</span>
+        <span id="quadaMobileRailState">Ocultar ▴</span>
+      </button>
 
-        <div class="quada-rail-group">
-          <div class="quada-cfg-label"><span>03 · Nivel y Tiempo</span></div>
-          <div class="quada-seg-row" id="quadaLevelRow"></div>
-          <label class="quada-toggle-row">
-            <span><strong>Superseries antagonistas</strong> (<code>-36%</code>)</span>
-            <input type="checkbox" id="quadaSupersetToggle" />
-          </label>
-        </div>
+      <div class="quada-workbench">
+        <aside class="quada-rail" id="quadaRail" aria-label="Parámetros y volumen Quada">
+          <div class="quada-rail-group">
+            <div class="quada-cfg-label"><span>01 · Días por semana</span><span id="quadaSplitTag"></span></div>
+            <div class="quada-seg-row" id="quadaDaysRow"></div>
+          </div>
 
-        <div class="quada-rail-group">
-          <div class="quada-cfg-label"><span>04 · Referencia Corporal (kg)</span></div>
-          <div class="quada-ref-row">
-            <label class="quada-ref-field">
-              <span>Peso (kg)</span>
-              <input type="number" id="quadaBodyWeightInput" min="35" max="250" step="0.5" inputmode="decimal" />
-            </label>
-            <label class="quada-ref-field">
-              <span>Sexo</span>
-              <select id="quadaSexSelect">
-                <option value="male">Hombre</option>
-                <option value="female">Mujer</option>
-              </select>
+          <div class="quada-rail-group">
+            <div class="quada-cfg-label"><span>02 · Recursos / Entorno</span></div>
+            <div class="quada-seg-row" id="quadaEnvRow"></div>
+          </div>
+
+          <div class="quada-rail-group">
+            <div class="quada-cfg-label"><span>03 · Nivel y Tiempo</span></div>
+            <div class="quada-seg-row" id="quadaLevelRow"></div>
+            <label class="quada-toggle-row">
+              <span><strong>Superseries antagonistas</strong> (<code>-36%</code>)</span>
+              <input type="checkbox" id="quadaSupersetToggle" />
             </label>
           </div>
-        </div>
 
-        <div class="quada-rail-group">
-          <div class="quada-cfg-label">
-            <span>05 · Foco Muscular (máx. 3/10)</span>
-            <span id="quadaFocusCount"></span>
-          </div>
-          <div class="quada-focus-grid" id="quadaFocusGrid"></div>
-        </div>
-
-        <div class="quada-rail-group quada-vol-section">
-          <div class="quada-cfg-label">
-            <span>Volumen Fraccional Semanal</span>
-            <span>Okabe–Ito</span>
-          </div>
-          <div class="quada-legend-row">
-            <span class="oi-dot oi-low">&lt;4</span>
-            <span class="oi-dot oi-eff">4–10</span>
-            <span class="oi-dot oi-opt">11–18</span>
-            <span class="oi-dot oi-over">&gt;18 / PUOS</span>
-          </div>
-          <div class="quada-vol-grid" id="quadaVolGrid"></div>
-        </div>
-      </aside>
-
-      <section class="quada-ledger quada-print-sheet" aria-label="Bitácora semanal y cargas">
-        <header class="quada-ledger-head">
-          <div class="quada-ledger-title-block">
-            <span class="quada-eyebrow" id="quadaPlanSummarySub">--</span>
-            <h2 class="quada-split-heading" id="quadaSplitHeading">4d Upper/Lower</h2>
-            <div class="quada-inline-metrics">
-              <div class="quada-metric-inline">
-                <span class="quada-m-lbl">Volumen</span>
-                <strong class="quada-m-val" id="quadaKpiVol">--</strong>
-              </div>
-              <div class="quada-metric-inline">
-                <span class="quada-m-lbl">Sesión</span>
-                <strong class="quada-m-val" id="quadaKpiTime">--</strong>
-              </div>
-              <div class="quada-metric-inline">
-                <span class="quada-m-lbl">Tonelaje est.</span>
-                <strong class="quada-m-val" id="quadaKpiLoad">--</strong>
-              </div>
-              <div class="quada-metric-inline">
-                <span class="quada-m-lbl">PUOS &le; 11</span>
-                <strong class="quada-m-val" id="quadaKpiPuos">--</strong>
-              </div>
+          <div class="quada-rail-group">
+            <div class="quada-cfg-label"><span>04 · Referencia Corporal (kg)</span></div>
+            <div class="quada-ref-row">
+              <label class="quada-ref-field">
+                <span>Peso (kg)</span>
+                <input type="number" id="quadaBodyWeightInput" min="35" max="250" step="0.5" inputmode="decimal" />
+              </label>
+              <label class="quada-ref-field">
+                <span>Sexo</span>
+                <select id="quadaSexSelect">
+                  <option value="male">Hombre</option>
+                  <option value="female">Mujer</option>
+                </select>
+              </label>
             </div>
           </div>
 
-          <div class="quada-export-actions">
-            <button type="button" id="quadaCopyTxtBtn" class="quada-btn-sec">Copiar rutina</button>
-            <button type="button" id="quadaDownloadTxtBtn" class="quada-btn-sec">Descargar .txt</button>
-            <button type="button" id="quadaPrintBtn" class="quada-btn-pri">Imprimir / PDF</button>
+          <div class="quada-rail-group">
+            <div class="quada-cfg-label">
+              <span>05 · Foco Muscular (máx. 3/10)</span>
+              <span id="quadaFocusCount"></span>
+            </div>
+            <div class="quada-focus-grid" id="quadaFocusGrid"></div>
           </div>
-        </header>
 
-        <nav class="quada-day-tabs" id="quadaDayTabs" aria-label="Filtrar por día"></nav>
-        <div class="quada-days-list" id="quadaDaysGrid"></div>
-      </section>
+          <div class="quada-rail-group quada-vol-section">
+            <div class="quada-cfg-label">
+              <span>Volumen Fraccional Semanal</span>
+              <span>Okabe–Ito</span>
+            </div>
+            <div class="quada-legend-row">
+              <span class="oi-dot oi-low">&lt;4</span>
+              <span class="oi-dot oi-eff">4–10</span>
+              <span class="oi-dot oi-opt">11–18</span>
+              <span class="oi-dot oi-over">&gt;18 / PUOS</span>
+            </div>
+            <div class="quada-vol-grid" id="quadaVolGrid"></div>
+          </div>
+        </aside>
+
+        <section class="quada-ledger quada-print-sheet" aria-label="Bitácora semanal y cargas">
+          <header class="quada-ledger-head">
+            <div class="quada-ledger-title-block">
+              <span class="quada-eyebrow" id="quadaPlanSummarySub">--</span>
+              <h2 class="quada-split-heading" id="quadaSplitHeading">4d Upper/Lower</h2>
+              <div class="quada-inline-metrics">
+                <div class="quada-metric-inline">
+                  <span class="quada-m-lbl">Volumen</span>
+                  <strong class="quada-m-val" id="quadaKpiVol">--</strong>
+                </div>
+                <div class="quada-metric-inline">
+                  <span class="quada-m-lbl">Sesión</span>
+                  <strong class="quada-m-val" id="quadaKpiTime">--</strong>
+                </div>
+                <div class="quada-metric-inline">
+                  <span class="quada-m-lbl">Tonelaje est.</span>
+                  <strong class="quada-m-val" id="quadaKpiLoad">--</strong>
+                </div>
+                <div class="quada-metric-inline">
+                  <span class="quada-m-lbl">PUOS &le; 11</span>
+                  <strong class="quada-m-val" id="quadaKpiPuos">--</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="quada-export-actions">
+              <button type="button" id="quadaCopyTxtBtn" class="quada-btn-sec">Copiar rutina</button>
+              <button type="button" id="quadaDownloadTxtBtn" class="quada-btn-sec">Descargar .txt</button>
+              <button type="button" id="quadaPrintBtn" class="quada-btn-pri">Imprimir / PDF</button>
+            </div>
+          </header>
+
+          <nav class="quada-day-tabs" id="quadaDayTabs" aria-label="Filtrar por día"></nav>
+          <div class="quada-days-list" id="quadaDaysGrid"></div>
+        </section>
+      </div>
+    </div>
+
+    <div id="quadaTabAtlas" class="quada-tab-panel">
+      <div class="quada-atlas-filters">
+        <div class="quada-atlas-filter-row" id="quadaAtlasMuscleRow"></div>
+        <div class="quada-atlas-filter-row" id="quadaAtlasEnvRow"></div>
+      </div>
+      <div class="quada-atlas-grid" id="quadaAtlasGrid"></div>
     </div>
   `;
+
+  root.querySelectorAll(".quada-mode-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activeQuadaTab = btn.dataset.qtab;
+      root.querySelectorAll(".quada-mode-tab").forEach((b) => b.classList.toggle("active", b === btn));
+      document.getElementById("quadaTabRutina").classList.toggle("active", activeQuadaTab === "rutina");
+      document.getElementById("quadaTabAtlas").classList.toggle("active", activeQuadaTab === "atlas");
+      if (activeQuadaTab === "atlas") renderQuadaAtlas();
+    });
+  });
+
+  const railToggleBtn = document.getElementById("quadaMobileRailToggle");
+  railToggleBtn.addEventListener("click", () => {
+    const rail = document.getElementById("quadaRail");
+    const isCollapsed = rail.classList.toggle("is-collapsed-mobile");
+    document.getElementById("quadaMobileRailState").textContent = isCollapsed ? "Mostrar ▾" : "Ocultar ▴";
+  });
 
   const daysRow = document.getElementById("quadaDaysRow");
   [1, 2, 3, 4, 5, 6].forEach((d) => {
@@ -323,7 +417,7 @@ function renderQuada() {
     tabsEl.appendChild(btn);
   });
 
-  // Notebook-style day ledger
+  // Scannable exercise cards per day
   const daysGrid = document.getElementById("quadaDaysGrid");
   daysGrid.innerHTML = "";
   plan.daysOut.forEach((d, dIdx) => {
@@ -339,32 +433,37 @@ function renderQuada() {
     `;
     card.appendChild(head);
 
-    const table = document.createElement("table");
-    table.className = "quada-ex-table";
-    table.innerHTML = `
-      <thead>
-        <tr><th>Ejercicio</th><th>Ser×Rep</th><th>RIR</th><th>Desc</th><th>Tempo</th><th>Carga (kg)</th></tr>
-      </thead>
-    `;
-    const tbody = document.createElement("tbody");
+    const cardsWrap = document.createElement("div");
+    cardsWrap.className = "quada-ex-cards";
 
-    d.rows.forEach((r) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>
-          <span class="quada-ex-name">${r.ssTag ? `<span class="quada-ss-badge">SS ${r.ssTag}</span>` : ""}${r.exName}</span>
-          <span class="quada-ex-note">${r.muscle}${r.isFocus ? " (Foco)" : ""} · ${r.note}</span>
-        </td>
-        <td class="quada-mono">${r.sets}×${r.reps}</td>
-        <td class="quada-mono">${r.rir}</td>
-        <td class="quada-mono">${r.restSec}s</td>
-        <td class="quada-mono">${r.tempo}</td>
+    d.rows.forEach((r, rIdx) => {
+      const exCard = document.createElement("div");
+      exCard.className = "quada-ex-card";
+
+      const exObj = (QUADA_EXERCISES[r.muscle]?.[quadaState.env] || []).find((x) => x.name === r.exName);
+      const syns = exObj?.syn || [];
+      const synHtml = syns.length
+        ? `<span class="quada-syn-list">Sinergistas: ${syns.map((s) => `<span class="quada-syn-pill">${s}</span>`).join("")}</span>`
+        : `<span class="quada-syn-list">Aislamiento directo</span>`;
+
+      exCard.innerHTML = `
+        <div class="quada-ex-card-top">
+          <div class="quada-ex-title-group">
+            <span class="quada-ex-num">${String(rIdx + 1).padStart(2, "0")}</span>
+            <span class="quada-ex-name">${r.ssTag ? `<span class="quada-ss-badge">SS ${r.ssTag}</span>` : ""}${r.exName}</span>
+          </div>
+          <span class="quada-ex-muscle-pill">${r.muscle}${r.isFocus ? " ★" : ""}</span>
+        </div>
+        <div class="quada-rx-bar">
+          <span class="quada-rx-chip"><strong>${r.sets}×${r.reps}</strong></span>
+          <span class="quada-rx-chip">RIR <strong>${r.rir}</strong></span>
+          <span class="quada-rx-chip">Desc <strong>${r.restSec}s</strong></span>
+          <span class="quada-rx-chip">Tempo <strong>${r.tempo}</strong></span>
+        </div>
       `;
 
-      const loadTd = document.createElement("td");
-      loadTd.className = "quada-load-cell";
-      const wrap = document.createElement("div");
-      wrap.className = "quada-series-wrap";
+      const loadRow = document.createElement("div");
+      loadRow.className = "quada-series-wrap";
 
       r.seriesKg.forEach((kg, sIdx) => {
         const chip = document.createElement("label");
@@ -398,15 +497,13 @@ function renderQuada() {
 
         chip.appendChild(tag);
         chip.appendChild(inp);
-        wrap.appendChild(chip);
+        loadRow.appendChild(chip);
       });
 
-      const metaRow = document.createElement("div");
-      metaRow.className = "quada-load-meta";
       const badge = document.createElement("span");
       badge.className = `quada-load-tag ${r.isCustom ? "is-custom" : "is-est"}`;
       badge.textContent = r.isBodyweight ? (r.isCustom ? "fijado (+kg)" : "corp. (+kg)") : (r.isCustom ? "fijado" : "est.");
-      metaRow.appendChild(badge);
+      loadRow.appendChild(badge);
 
       if (r.isCustom) {
         const resetBtn = document.createElement("button");
@@ -419,17 +516,87 @@ function renderQuada() {
           saveQuadaState(quadaState);
           renderQuada();
         });
-        metaRow.appendChild(resetBtn);
+        loadRow.appendChild(resetBtn);
       }
 
-      loadTd.appendChild(wrap);
-      loadTd.appendChild(metaRow);
-      tr.appendChild(loadTd);
-      tbody.appendChild(tr);
+      const foot = document.createElement("div");
+      foot.className = "quada-ex-card-foot";
+      foot.innerHTML = `<span class="quada-ex-note">${r.note}</span>${synHtml}`;
+
+      exCard.appendChild(loadRow);
+      exCard.appendChild(foot);
+      cardsWrap.appendChild(exCard);
     });
 
-    table.appendChild(tbody);
-    card.appendChild(table);
+    card.appendChild(cardsWrap);
     daysGrid.appendChild(card);
+  });
+}
+
+function renderQuadaAtlas() {
+  const mRow = document.getElementById("quadaAtlasMuscleRow");
+  const eRow = document.getElementById("quadaAtlasEnvRow");
+  const grid = document.getElementById("quadaAtlasGrid");
+  if (!mRow || !eRow || !grid) return;
+
+  mRow.innerHTML = `<strong class="quada-atlas-filter-lbl">Músculo:</strong>`;
+  ["Todos", ...QUADA_MUSCLES].forEach((m) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = `quada-atlas-chip${atlasMuscleFilter === m ? " active" : ""}`;
+    b.textContent = m;
+    b.addEventListener("click", () => {
+      atlasMuscleFilter = m;
+      renderQuadaAtlas();
+    });
+    mRow.appendChild(b);
+  });
+
+  eRow.innerHTML = `<strong class="quada-atlas-filter-lbl">Entorno:</strong>`;
+  [{ id: "all", label: "Todos" }, ...QUADA_ENVS].forEach((e) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = `quada-atlas-chip${atlasEnvFilter === e.id ? " active" : ""}`;
+    b.textContent = e.label;
+    b.addEventListener("click", () => {
+      atlasEnvFilter = e.id;
+      renderQuadaAtlas();
+    });
+    eRow.appendChild(b);
+  });
+
+  const legend = document.createElement("div");
+  legend.className = "quada-atlas-legend";
+  legend.innerHTML = `
+    <span><span class="quada-dot-pri"></span>Primario</span>
+    <span><span class="quada-dot-syn"></span>Sinergista</span>
+  `;
+  eRow.appendChild(legend);
+
+  grid.innerHTML = "";
+  QUADA_MUSCLES.forEach((m) => {
+    if (atlasMuscleFilter !== "Todos" && atlasMuscleFilter !== m) return;
+    QUADA_ENVS.forEach((e) => {
+      if (atlasEnvFilter !== "all" && atlasEnvFilter !== e.id) return;
+      (QUADA_EXERCISES[m]?.[e.id] || []).forEach((ex) => {
+        const card = document.createElement("article");
+        card.className = "quada-atlas-card";
+        const synBadges = (ex.syn || []).map((s) => `<span class="quada-badge-syn">+ ${s}</span>`).join("");
+        card.innerHTML = `
+          <div class="quada-atlas-svg-box">${buildAnatomicalSvg(m, ex.syn || [])}</div>
+          <div class="quada-atlas-info">
+            <h3>${ex.name}</h3>
+            <div class="quada-atlas-env">${e.label}</div>
+            <div class="quada-atlas-badges">
+              <span class="quada-badge-pri">${m}</span>
+              ${synBadges}
+            </div>
+            <div class="quada-atlas-meta">${ex.reps} reps · RIR ${ex.rir} · Desc ${ex.rest}s · Tempo ${ex.tempo}</div>
+            <p class="quada-atlas-note">${ex.note}</p>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    });
   });
 }

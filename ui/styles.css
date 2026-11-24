@@ -2535,3 +2535,326 @@ html[data-theme="dark"] #quadaAppShell {
   cursor: pointer;
   flex-shrink: 0;
 }
+
+/* ===== Auditoría UI: Guía Diol y Quada v2 (Rutina Escaneable + Atlas) ===== */
+.diol-flow-guide {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.diol-subcharts-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 14px 0 6px;
+}
+
+.quada-subnav-bar {
+  margin-bottom: 16px;
+}
+
+.quada-mode-tabs {
+  display: inline-flex;
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  gap: 4px;
+}
+
+.quada-mode-tab {
+  border: none;
+  background: transparent;
+  color: var(--q-muted);
+  font-weight: 600;
+  font-size: 0.86rem;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.quada-mode-tab.active {
+  background: var(--q-accent);
+  color: var(--q-btn-ink);
+}
+
+.quada-tab-panel {
+  display: none;
+}
+
+.quada-tab-panel.active {
+  display: block;
+}
+
+.quada-mobile-rail-toggle {
+  display: none;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-md);
+  color: var(--q-ink);
+  font-weight: 600;
+  font-size: 0.85rem;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+@media (max-width: 1079px) {
+  .quada-mobile-rail-toggle {
+    display: flex;
+  }
+
+  .quada-rail.is-collapsed-mobile {
+    display: none;
+  }
+}
+
+.quada-ex-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 16px;
+}
+
+.quada-ex-card {
+  background: var(--q-surface-alt);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.quada-ex-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.quada-ex-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.quada-ex-num {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--q-accent);
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
+.quada-ex-muscle-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--q-accent);
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+
+.quada-rx-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.quada-rx-chip {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  padding: 3px 8px;
+  border-radius: 5px;
+}
+
+.quada-rx-chip strong {
+  color: var(--q-accent);
+}
+
+.quada-ex-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--q-muted);
+}
+
+.quada-syn-list {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.quada-syn-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--q-accent-2);
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  padding: 1px 7px;
+  border-radius: 5px;
+}
+
+.quada-atlas-filters {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quada-atlas-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.quada-atlas-filter-lbl {
+  font-size: 0.8rem;
+  margin-right: 4px;
+  color: var(--q-muted);
+}
+
+.quada-atlas-chip {
+  border: 1px solid var(--q-border);
+  background: var(--q-surface-alt);
+  color: var(--q-ink);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quada-atlas-chip.active {
+  background: var(--q-accent);
+  border-color: var(--q-accent);
+  color: var(--q-btn-ink);
+}
+
+.quada-atlas-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: var(--q-muted);
+  margin-left: auto;
+}
+
+.quada-dot-pri,
+.quada-dot-syn {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.quada-dot-pri { background: var(--q-accent); }
+.quada-dot-syn { background: var(--q-accent-2); }
+
+.quada-atlas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.quada-atlas-card {
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.quada-atlas-svg-box {
+  background: var(--q-surface-alt);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-sm);
+  width: 88px;
+  height: 114px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quada-atlas-info h3 {
+  font-family: var(--font-display);
+  font-size: 0.96rem;
+  line-height: 1.25;
+}
+
+.quada-atlas-env {
+  font-size: 0.74rem;
+  color: var(--q-muted);
+  margin: 3px 0 6px;
+}
+
+.quada-atlas-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.quada-badge-pri,
+.quada-badge-syn {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--q-surface-alt);
+  border: 1px solid var(--q-border);
+}
+
+.quada-badge-pri { color: var(--q-accent); }
+.quada-badge-syn { color: var(--q-accent-2); }
+
+.quada-atlas-meta {
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  color: var(--q-muted);
+  margin-bottom: 4px;
+}
+
+.quada-atlas-note {
+  font-size: 0.79rem;
+  color: var(--q-ink);
+}
+
+@keyframes qc04-wave {
+  0%, 100% { opacity: 0.65; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+.qc04-s1 { animation: qc04-wave 2.4s ease-in-out infinite 0s; transform-box: fill-box; transform-origin: center; }
+.qc04-s2 { animation: qc04-wave 2.4s ease-in-out infinite 0.2s; transform-box: fill-box; transform-origin: center; }
+.qc04-s3 { animation: qc04-wave 2.4s ease-in-out infinite 0.4s; transform-box: fill-box; transform-origin: center; }
+.qc04-s4 { animation: qc04-wave 2.4s ease-in-out infinite 0.6s; transform-box: fill-box; transform-origin: center; }
