@@ -30,6 +30,11 @@ const CRITICAL_IDS = [
   "newProfileNameInput", "createProfileBtn", "profilesListContainer", "toastContainer"
 ];
 
+const QUADA_IDS = [
+  "quadaBodyWeightInput", "quadaSexSelect", "quadaCopyTxtBtn",
+  "quadaDownloadTxtBtn", "quadaPrintBtn"
+];
+
 function rel(p) {
   return path.relative(ROOT, p).replace(/\\/g, "/");
 }
@@ -101,6 +106,16 @@ if (missingIds.length > 0) {
   errors.push(`[DOM] Faltan ${missingIds.length}/95 IDs críticos en ui/index.html: ${missingIds.join(", ")}`);
 }
 
+if (!presentIds.has("humaniaHub")) {
+  errors.push("[DOM] Falta #humaniaHub en ui/index.html");
+}
+const quadaUiRaw = contents.get("ui/js/quadaUi.js") || "";
+const quadaPresentIds = new Set([...presentIds, ...[...quadaUiRaw.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1])]);
+const missingQuadaIds = QUADA_IDS.filter((id) => !quadaPresentIds.has(id));
+if (missingQuadaIds.length > 0) {
+  errors.push(`[DOM] Faltan IDs clave de Quada (${missingQuadaIds.join(", ")}) en ui/index.html o ui/js/quadaUi.js`);
+}
+
 // Cargar CIENCIA_HTML desde ui/js/cienciaContent.js
 let cienciaHtml = "";
 const cienciaRaw = contents.get("ui/js/cienciaContent.js") || "";
@@ -156,13 +171,74 @@ for (const file of jsFiles) {
   }
 }
 
-// 6. --check-version (5 puntos obligatorios)
+// 6. Identificadores intocables y ventana móvil BITACORA.md
+const tauriConfRaw = fs.readFileSync(path.join(ROOT, "src-tauri/tauri.conf.json"), "utf8");
+const cargoTomlRaw = fs.readFileSync(path.join(ROOT, "src-tauri/Cargo.toml"), "utf8");
+const pkgRaw = fs.readFileSync(path.join(ROOT, "package.json"), "utf8");
+const stateJsRaw = contents.get("ui/js/state.js") || "";
+
+if (!/"identifier"\s*:\s*"com\.jc\.vitamindsim"/.test(tauriConfRaw)) {
+  errors.push('[PROTECTED] Falta "identifier": "com.jc.vitamindsim" en src-tauri/tauri.conf.json');
+}
+if (!stateJsRaw.includes("vitd_sim_v7_profiles") || !stateJsRaw.includes("vitd_sim_v7_theme")) {
+  errors.push("[PROTECTED] Faltan claves vitd_sim_v7_profiles / vitd_sim_v7_theme en ui/js/state.js");
+}
+if (!/^name\s*=\s*"app"/m.test(cargoTomlRaw) || !/^name\s*=\s*"app_lib"/m.test(cargoTomlRaw)) {
+  errors.push('[PROTECTED] Faltan name = "app" / name = "app_lib" en src-tauri/Cargo.toml');
+}
+if (!/"name"\s*:\s*"vitd-tauri"/.test(pkgRaw)) {
+  errors.push('[PROTECTED] Falta "name": "vitd-tauri" en package.json');
+}
+
+const bitacoraRaw = contents.get("BITACORA.md") || "";
+const bitacoraEntries = bitacoraRaw.match(/^## Encargo/gm) || [];
+if (bitacoraEntries.length > 5) {
+  errors.push(`[BITACORA] Ventana móvil excedida: ${bitacoraEntries.length}/5 encabezados "^## Encargo"`);
+}
+
+// 7. Smoke tests Capa 1 (ESM en Node sin DOM)
+let quadaSmoke = "fail";
+let pkSmoke = "fail";
+try {
+  const qCode = contents.get("ui/js/quadaEngine.js") || "";
+  const qMod = await import(`data:text/javascript;base64,${Buffer.from(qCode, "utf8").toString("base64")}`);
+  const st = qMod.createDefaultQuadaState();
+  const plan = qMod.computeQuadaPlan(st);
+  const txt = qMod.formatQuadaPlainText(st, plan);
+  if (!Array.isArray(plan?.daysOut) || plan.daysOut.length !== 4 || !(plan.totalVolumeKg > 0)) {
+    throw new Error(`Rutina inválida (daysOut=${plan?.daysOut?.length}, vol=${plan?.totalVolumeKg})`);
+  }
+  if (typeof txt !== "string" || txt.trim().length === 0) {
+    throw new Error("formatQuadaPlainText devolvió texto vacío");
+  }
+  quadaSmoke = `${plan.daysOut.length}d/${plan.totalVolumeKg}kg`;
+} catch (err) {
+  errors.push(`[SMOKE:QUADA] ${err.message}`);
+}
+
+try {
+  const sUrl = `data:text/javascript;base64,${Buffer.from(stateJsRaw, "utf8").toString("base64")}`;
+  const pkCode = (contents.get("ui/js/pkEngine.js") || "").replace("./state.js", sUrl);
+  const pkMod = await import(`data:text/javascript;base64,${Buffer.from(pkCode, "utf8").toString("base64")}`);
+  if (typeof pkMod.estimateBodyFatCUNBAE !== "function" || typeof pkMod.integrateTrajectory !== "function") {
+    throw new Error("Faltan exports clave en pkEngine.js");
+  }
+  const bf = pkMod.estimateBodyFatCUNBAE("male", 30, 75, 175);
+  if (!Number.isFinite(bf) || bf <= 0) {
+    throw new Error(`estimateBodyFatCUNBAE inválido: ${bf}`);
+  }
+  pkSmoke = "ok";
+} catch (err) {
+  errors.push(`[SMOKE:PK] ${err.message}`);
+}
+
+// 8. --check-version (5 puntos obligatorios)
 let detectedVersion = null;
 if (CHECK_VERSION) {
-  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-  const tauriConf = JSON.parse(fs.readFileSync(path.join(ROOT, "src-tauri/tauri.conf.json"), "utf8"));
-  const cargoToml = fs.readFileSync(path.join(ROOT, "src-tauri/Cargo.toml"), "utf8");
-  const stateJs = fs.readFileSync(path.join(ROOT, "ui/js/state.js"), "utf8");
+  const pkg = JSON.parse(pkgRaw);
+  const tauriConf = JSON.parse(tauriConfRaw);
+  const cargoToml = cargoTomlRaw;
+  const stateJs = stateJsRaw;
 
   const cargoMatch = cargoToml.match(/^version\s*=\s*"([^"]+)"/m);
   const htmlVerMatch = indexHtml.match(/v(\d+\.\d+\.\d+)/);
@@ -193,9 +269,12 @@ if (errors.length > 0) {
 const summary = [
   `encoding=${encodingTargets.length}ok`,
   `ids=${CRITICAL_IDS.length}/95`,
+  `quadaIds=${QUADA_IDS.length}/${QUADA_IDS.length}`,
   `nav=${navMatches.length}`,
   `scienceBox=${boxChunks.length}`,
-  `esm=${jsFiles.length}ok`
+  `esm=${jsFiles.length}ok`,
+  `bitacora=${bitacoraEntries.length}/5`,
+  `smoke=${quadaSmoke}+pk:${pkSmoke}`
 ];
 if (CHECK_VERSION && detectedVersion) summary.push(`version=v${detectedVersion}`);
 console.log(`verify_diol.mjs OK (${summary.join(", ")})`);
