@@ -4,8 +4,8 @@
   --bg-card: #FFFFFF;
   --bg-well: #DEEAF5;
   --bg-input: #F7FAFD;
-  --border-color: #A8C7E2;
-  --border-strong: #7BA6CC;
+  --border-color: #7094B3;
+  --border-strong: #557A9B;
   --text-primary: #112233;
   --text-secondary: #2B455E;
   --text-muted: #4C6985;
@@ -44,11 +44,11 @@
   --bg-card: #172635;
   --bg-well: #111D29;
   --bg-input: #142230;
-  --border-color: #36506B;
-  --border-strong: #4C6E91;
+  --border-color: #82A2C0;
+  --border-strong: #9CB8D4;
   --text-primary: #EDF4FB;
   --text-secondary: #BFD4E8;
-  --text-muted: #8BA8C4;
+  --text-muted: #A4BFD9;
 
   --helio: #F4D175;
   --helio-hover: #F7DC94;
@@ -165,18 +165,18 @@ body {
 .topbar-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .profile-dock {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: transparent;
-  border: none;
-  padding: 0;
-  border-radius: 0;
+  gap: 6px;
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  padding: 2px 6px;
+  border-radius: var(--radius-md);
   flex-wrap: wrap;
 }
 
@@ -1652,8 +1652,8 @@ html[data-theme="dark"] #quadaAppShell {
   --q-surface-alt: #2B2421;
   --q-border: #3D322D;
   --q-ink: #EDE6DC;
-  --q-muted: #B5A69B;
-  --q-accent: #E06D53;
+  --q-muted: #C4B6AB;
+  --q-accent: #EA7E64;
   --q-accent-2: #E2A84B;
   --q-btn-ink: #161312;
 }
@@ -2858,3 +2858,52 @@ html[data-theme="dark"] #quadaAppShell {
 .qc04-s2 { animation: qc04-wave 2.4s ease-in-out infinite 0.2s; transform-box: fill-box; transform-origin: center; }
 .qc04-s3 { animation: qc04-wave 2.4s ease-in-out infinite 0.4s; transform-box: fill-box; transform-origin: center; }
 .qc04-s4 { animation: qc04-wave 2.4s ease-in-out infinite 0.6s; transform-box: fill-box; transform-origin: center; }
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--helio);
+  outline-offset: 2px;
+}
+
+[data-app="quada"] button:focus-visible,
+[data-app="quada"] input:focus-visible,
+[data-app="quada"] select:focus-visible,
+[data-app="quada"] [role="button"]:focus-visible,
+[data-app="quada"] [tabindex]:focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1120px), (pointer: coarse) {
+  .layer-chip,
+  .zoom-controls .btn-xs,
+  .tab-btn,
+  .quada-seg-btn {
+    min-height: 44px;
+  }
+
+  .zoom-controls,
+  .quada-seg-row,
+  .tab-nav {
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .qc04-s1,
+  .qc04-s2,
+  .qc04-s3,
+  .qc04-s4 {
+    animation: none !important;
+  }
+}

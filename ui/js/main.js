@@ -265,18 +265,25 @@ function bindUIEvents() {
     });
   });
 
+  const openParamCard = (head) => {
+    const card = head.closest(".panel-card");
+    if (!card || card.classList.contains("modal-open")) return;
+    closeParamModal();
+    card.classList.remove("collapsed");
+    card.classList.add("modal-open");
+    const bd = $id("paramModalBackdrop");
+    if (bd) {
+      bd.classList.remove("hidden");
+      bd.setAttribute("aria-hidden", "false");
+    }
+  };
+
   document.querySelectorAll(".sidebar .panel-head").forEach((head) => {
-    head.addEventListener("click", () => {
-      const card = head.closest(".panel-card");
-      if (!card) return;
-      if (card.classList.contains("modal-open")) return;
-      closeParamModal();
-      card.classList.remove("collapsed");
-      card.classList.add("modal-open");
-      const bd = $id("paramModalBackdrop");
-      if (bd) {
-        bd.classList.remove("hidden");
-        bd.setAttribute("aria-hidden", "false");
+    head.addEventListener("click", () => openParamCard(head));
+    head.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openParamCard(head);
       }
     });
   });

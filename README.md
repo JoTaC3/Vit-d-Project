@@ -24,7 +24,7 @@
 
 ## Descarga e Instalación
 
-Descarga la última versión compilada (**`v0.3.29`**) desde GitHub Releases:  
+Descarga la última versión compilada (**`v0.3.30`**) desde GitHub Releases:  
 **[https://github.com/JoTaC3/Vit-d-Project/releases/latest](https://github.com/JoTaC3/Vit-d-Project/releases/latest)**
 
 - **Windows x64:** instaladores `.msi` y `.exe` (NSIS), con **auto-actualización integrada** (`tauri-plugin-updater` consultando `latest.json` en GitHub Releases).
